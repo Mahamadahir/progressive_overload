@@ -1,0 +1,35 @@
+// device_apps (vendored) — modernized for AGP 8+
+plugins {
+    id 'com.android.library'
+}
+
+group 'fr.g123k.deviceapps'
+version '1.0-SNAPSHOT'
+
+repositories {
+    google()
+    mavenCentral()
+}
+
+android {
+    namespace 'fr.g123k.deviceapps'
+    compileSdk 36
+
+    defaultConfig {
+        minSdk 26; targetSdk 36
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // No Kotlin here; Java-only plugin
+}
+
+dependencies {
+    // Keep dependencies minimal; annotations are optional.
+    // Use compileOnly so we don't drag extra transitive AndroidX at runtime.
+    compileOnly 'androidx.annotation:annotation:1.8.0'
+}

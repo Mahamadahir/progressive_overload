@@ -1,0 +1,51 @@
+name: fitness_app
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  health: 13.1.4
+  permission_handler: ^12.0.1
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  path_provider: ^2.1.2
+  fl_chart: ^1.0.0
+  url_launcher: ^6.2.5
+  device_apps: ^2.2.0
+  flutter_local_notifications: ^19.4.0
+  flutter_timezone: ^4.1.1
+  uuid: ^4.4.2
+
+
+  workmanager: ^0.9.0+2
+
+  timezone: any
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  hive_generator: ^2.0.1
+  build_runner: ^2.4.9
+
+dependency_overrides:
+  device_apps:
+    path: plugins/device_apps_fixed   # (keep your existing override)
+
+
+flutter:
+  uses-material-design: true
+
+analyzer:
+  exclude:
+    - "plugins/**/example/**"
+    - "**/.dart_tool/**"
+    - "**/build/**"
+
+
