@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:hive/hive.dart';
-import '../../models/workout_plan.dart';
-import '../../services/workout_service.dart';
+import 'package:fitness_app/models/workout_plan.dart';
+import 'package:fitness_app/services/workout_service.dart';
 
 class PlanChartsPage extends StatefulWidget {
   final String planId;

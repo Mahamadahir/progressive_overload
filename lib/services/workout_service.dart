@@ -1,5 +1,5 @@
 import 'package:hive/hive.dart';
-import '../../models/workout_plan.dart';
+import 'package:fitness_app/models/workout_plan.dart';
 import 'health_service.dart'; // for getLatestWeight() and writeStrengthWorkout()
 
 class WorkoutService {
@@ -14,7 +14,10 @@ class WorkoutService {
     int minReps = 6,
     int maxReps = 12,
     double incrementKg = 2.0,
+    double? defaultMets,
+    @Deprecated('Use defaultMets instead') double? mets,
   }) async {
+    final resolvedMets = defaultMets ?? mets ?? 3.0;
     final plan = WorkoutPlan(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       name: name,
@@ -22,6 +25,7 @@ class WorkoutService {
       minReps: minReps,
       maxReps: maxReps,
       incrementKg: incrementKg,
+      mets: resolvedMets,
     );
     await _planBox.put(plan.id, plan);
   }

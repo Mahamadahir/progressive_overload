@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:health/health.dart';        // enums & types
-import '../../health_singleton.dart';       // shared instance
-import '../../services/health_service.dart';
+import 'package:fitness_app/health_singleton.dart';       // shared instance
+import 'package:fitness_app/services/health_service.dart';
 
 class WorkoutHistoryPage extends StatefulWidget {
   const WorkoutHistoryPage({super.key});

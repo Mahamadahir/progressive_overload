@@ -5,6 +5,9 @@ import '../models/meal_template.dart';
 import '../models/meal_log.dart';
 import '../models/meal_component_line.dart';
 
+String _dayKey(DateTime d) =>
+    "${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}";
+
 class MealService {
   static const _templatesBoxName = 'meal_templates';
   static const _logsBoxName = 'meal_logs';
@@ -199,23 +202,26 @@ class MealService {
     return list;
   }
 
-  /// Intake (kcal) per day in [start, end], keyed by YYYY-MM-DD (local).
+  /// Intake (kcal) per day in the inclusive range [start, end], keyed by YYYY-MM-DD (local).
   /// Only returns days that have at least one meal log (so you can detect "Unavailable").
   Map<String, double> intakeByDay(DateTime start, DateTime end) {
     final map = <String, double>{};
+    final startUtc = DateTime(start.year, start.month, start.day).toUtc();
+    final endExclusiveUtc =
+        DateTime(end.year, end.month, end.day).add(const Duration(days: 1)).toUtc();
+
     for (final log in _logs.values) {
-      final local = log.loggedAt.toLocal();
-      if (local.isBefore(start) || !local.isBefore(end.add(const Duration(days: 1)))) {
+      final stamp = log.loggedAt;
+      if (stamp.isBefore(startUtc) || !stamp.isBefore(endExclusiveUtc)) {
         continue;
       }
-      final dayKey = _yyyyMmDd(DateTime(local.year, local.month, local.day));
-      map.update(dayKey, (v) => v + log.kcal, ifAbsent: () => log.kcal);
+      final local = stamp.toLocal();
+      final day = DateTime(local.year, local.month, local.day);
+      final key = _dayKey(day);
+      map.update(key, (v) => v + log.kcal, ifAbsent: () => log.kcal);
     }
     return map;
   }
-
-  String _yyyyMmDd(DateTime d) =>
-      "${d.year.toString().padLeft(4,'0')}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}";
 
   // Edit/delete logs
   Future<MealLog?> updateLogFromNewLines(String id, List<MealComponentLine> lines) async {
@@ -274,27 +280,19 @@ class MealService {
 
 // --- Extension: fast/month-batched helpers for trends ---
 extension MealServiceTrends on MealService {
-  /// All logs in [start,end) (UTC in storage; grouped by local day for UI).
+  /// All logs in the inclusive range [start, end] (UTC in storage; grouped by local day for UI).
   List<MealLog> logsInRange(DateTime start, DateTime end) {
-    final box = Hive.box<MealLog>('meal_logs');
-    final list = box.values
-        .where((e) =>
-    e.loggedAt.isAfter(start.toUtc()) &&
-        e.loggedAt.isBefore(end.toUtc()))
+    final startUtc = DateTime(start.year, start.month, start.day).toUtc();
+    final endExclusiveUtc =
+        DateTime(end.year, end.month, end.day).add(const Duration(days: 1)).toUtc();
+
+    final list = Hive.box<MealLog>('meal_logs')
+        .values
+        .where((log) =>
+            !log.loggedAt.isBefore(startUtc) && log.loggedAt.isBefore(endExclusiveUtc))
         .toList();
     list.sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
     return list;
-  }
-
-  /// Intake (kcal) per local day key "YYYY-MM-DD" in [start,end).
-  Map<String, double> intakeByDay(DateTime start, DateTime end) {
-    final map = <String, double>{};
-    for (final l in logsInRange(start, end)) {
-      final local = l.loggedAt.toLocal();
-      final key = _yyyyMmDd(local);
-      map[key] = (map[key] ?? 0) + l.kcal;
-    }
-    return map;
   }
 
   /// Meals (logs) by local day key.
@@ -302,7 +300,7 @@ extension MealServiceTrends on MealService {
     final map = <String, List<MealLog>>{};
     for (final l in logsInRange(start, end)) {
       final local = l.loggedAt.toLocal();
-      final key = _yyyyMmDd(local);
+      final key = _dayKey(DateTime(local.year, local.month, local.day));
       (map[key] ??= <MealLog>[]).add(l);
     }
     // newest first in each bucket
@@ -311,9 +309,4 @@ extension MealServiceTrends on MealService {
     }
     return map;
   }
-
-  static String _yyyyMmDd(DateTime d) =>
-      "${d.year.toString().padLeft(4, '0')}-"
-          "${d.month.toString().padLeft(2, '0')}-"
-          "${d.day.toString().padLeft(2, '0')}";
 }
