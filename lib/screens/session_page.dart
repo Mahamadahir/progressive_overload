@@ -2,10 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:health/health.dart';
-import '../../models/workout_plan.dart';
-import '../../services/workout_service.dart';
-import '../../services/health_service.dart';
-import '../../health_singleton.dart'; // still used by other services
+import 'package:fitness_app/models/workout_plan.dart';
+import 'package:fitness_app/services/workout_service.dart';
+import 'package:fitness_app/services/health_service.dart';
+import 'package:fitness_app/health_singleton.dart'; // still used by other services
 import 'health_connect_diagnostics_page.dart'; // centralized permission helpers
 
 class SessionPage extends StatefulWidget {
@@ -48,12 +48,6 @@ class _SessionPageState extends State<SessionPage> {
   static const _permsWorkoutWrite = <HealthDataAccess>[
     HealthDataAccess.READ_WRITE,
     HealthDataAccess.READ_WRITE,
-  ];
-  static const _typesActiveRead = <HealthDataType>[
-    HealthDataType.ACTIVE_ENERGY_BURNED,
-  ];
-  static const _permsActiveRead = <HealthDataAccess>[
-    HealthDataAccess.READ,
   ];
   static const _typesWeightRead = <HealthDataType>[
     HealthDataType.WEIGHT,

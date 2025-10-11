@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
-import '../../models/workout_plan.dart';
+import 'package:fitness_app/models/workout_plan.dart';
 
 class EditPlanPage extends StatefulWidget {
   final String planId;

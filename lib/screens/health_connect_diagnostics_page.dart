@@ -5,21 +5,19 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:health/health.dart';
 
-import '../../health_singleton.dart'; // uses: final Health health = Health();
-import '../../services/health_service.dart';
+import 'package:fitness_app/health_singleton.dart'; // uses: final Health health = Health();
+import 'package:fitness_app/services/health_service.dart';
 
 /// Top-level constants so helpers + UI can both reference them.
 const List<HealthDataType> hcTypes = <HealthDataType>[
   HealthDataType.WORKOUT,
   HealthDataType.TOTAL_CALORIES_BURNED,
-  HealthDataType.ACTIVE_ENERGY_BURNED,
   HealthDataType.WEIGHT,
 ];
 
 List<HealthDataAccess> get hcPermissions => <HealthDataAccess>[
   HealthDataAccess.READ_WRITE, // WORKOUT
   HealthDataAccess.READ_WRITE, // TOTAL_CALORIES_BURNED
-  HealthDataAccess.READ, // ACTIVE_ENERGY_BURNED
   HealthDataAccess.READ, // WEIGHT
 ];
 
@@ -99,7 +97,7 @@ class _HealthConnectDiagnosticsPageState
     });
     try {
       final authorized =
-      await HealthConnectDiagnosticsHelper.requestPermissionsSerial();
+          await HealthConnectDiagnosticsHelper.requestPermissionsSerial();
       setState(() => hasPerms = authorized);
     } catch (e) {
       setState(() => error = 'requestAuthorization error: $e');
@@ -135,13 +133,13 @@ class _HealthConnectDiagnosticsPageState
   Future<void> _readSmokeTest() async {
     try {
       await health.configure();
-      const t = [HealthDataType.ACTIVE_ENERGY_BURNED];
+      const t = [HealthDataType.TOTAL_CALORIES_BURNED];
       const p = [HealthDataAccess.READ];
 
       bool? has = await health.hasPermissions(t, permissions: p);
       has = false;
       final ok = await health.requestAuthorization(t, permissions: p);
-      if (!ok) throw 'READ permission denied for ACTIVE_ENERGY_BURNED';
+      if (!ok) throw 'READ permission denied for TOTAL_CALORIES_BURNED';
 
       final now = DateTime.now();
       final start = DateTime(now.year, now.month, now.day);

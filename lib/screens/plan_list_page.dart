@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../services/workout_service.dart';
+import 'package:fitness_app/services/workout_service.dart';
 import 'create_plan_page.dart';
 import 'session_page.dart';
 import 'plan_detail_page.dart';
