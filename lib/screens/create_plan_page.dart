@@ -70,7 +70,11 @@ class _CreatePlanPageState extends State<CreatePlanPage> {
                     minReps: _defaultMinReps,
                     maxReps: _defaultMaxReps,
                     incrementKg: _defaultIncrementKg,
+<<<<<<< HEAD
                     defaultMets: _defaultMets,
+=======
+                    mets: _defaultMets,
+>>>>>>> origin/main
                   );
                   if (mounted) Navigator.pop(context);
                 },

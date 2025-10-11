@@ -14,8 +14,12 @@ class WorkoutService {
     int minReps = 6,
     int maxReps = 12,
     double incrementKg = 2.0,
+<<<<<<< HEAD
     double? defaultMets,
     @Deprecated('Use defaultMets instead') double? mets,
+=======
+    double mets = 3.0,
+>>>>>>> origin/main
   }) async {
     final resolvedMets = defaultMets ?? mets ?? 3.0;
     final plan = WorkoutPlan(
@@ -25,7 +29,11 @@ class WorkoutService {
       minReps: minReps,
       maxReps: maxReps,
       incrementKg: incrementKg,
+<<<<<<< HEAD
       mets: resolvedMets,
+=======
+      mets: mets,
+>>>>>>> origin/main
     );
     await _planBox.put(plan.id, plan);
   }
