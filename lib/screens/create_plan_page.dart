@@ -30,13 +30,20 @@ class _CreatePlanPageState extends State<CreatePlanPage> {
 
   void _loadDefaults() {
     _defaultMinReps =
-        _settings.get('defaultMinReps', defaultValue: 6) as int;
+    _settings.get('defaultMinReps', defaultValue: 6) as int;
     _defaultMaxReps =
-        _settings.get('defaultMaxReps', defaultValue: 12) as int;
+    _settings.get('defaultMaxReps', defaultValue: 12) as int;
     _defaultIncrementKg =
         (_settings.get('defaultIncKg', defaultValue: 2.0) as num).toDouble();
     _defaultMets =
         (_settings.get('defaultMets', defaultValue: 3.0) as num).toDouble();
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _startWeight.dispose();
+    super.dispose();
   }
 
   @override
@@ -57,7 +64,7 @@ class _CreatePlanPageState extends State<CreatePlanPage> {
               TextFormField(
                 controller: _startWeight,
                 decoration: const InputDecoration(labelText: 'Starting weight (kg)'),
-                keyboardType: TextInputType.number,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 validator: (v) => v == null || v.isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 16),
@@ -70,11 +77,8 @@ class _CreatePlanPageState extends State<CreatePlanPage> {
                     minReps: _defaultMinReps,
                     maxReps: _defaultMaxReps,
                     incrementKg: _defaultIncrementKg,
-<<<<<<< HEAD
+                    // Use the new parameter; WorkoutService should keep a deprecated `mets` fallback internally.
                     defaultMets: _defaultMets,
-=======
-                    mets: _defaultMets,
->>>>>>> origin/main
                   );
                   if (mounted) Navigator.pop(context);
                 },

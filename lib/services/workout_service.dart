@@ -1,12 +1,17 @@
 import 'package:hive/hive.dart';
-import 'package:fitness_app/models/workout_plan.dart';
-import 'health_service.dart'; // for getLatestWeight() and writeStrengthWorkout()
+
+// Alias imports to avoid the WorkoutLog name clash
+import 'package:fitness_app/models/workout_plan.dart' as wp show WorkoutPlan;
+import 'package:fitness_app/models/workout_log.dart' as wl show WorkoutLog;
+
+import 'health_service.dart'; // getLatestWeight(), writeStrengthWorkout()
 
 class WorkoutService {
-  final _planBox = Hive.box<WorkoutPlan>('plans');
-  final _logBox = Hive.box<WorkoutLog>('plan_logs');
+  // Explicit generic types + aliases
+  final Box<wp.WorkoutPlan> _planBox = Hive.box<wp.WorkoutPlan>('plans');
+  final Box<wl.WorkoutLog> _logBox = Hive.box<wl.WorkoutLog>('plan_logs');
 
-  List<WorkoutPlan> getPlans() => _planBox.values.toList();
+  List<wp.WorkoutPlan> getPlans() => _planBox.values.toList();
 
   Future<void> createPlan({
     required String name,
@@ -14,27 +19,21 @@ class WorkoutService {
     int minReps = 6,
     int maxReps = 12,
     double incrementKg = 2.0,
-<<<<<<< HEAD
     double? defaultMets,
     @Deprecated('Use defaultMets instead') double? mets,
-=======
-    double mets = 3.0,
->>>>>>> origin/main
   }) async {
     final resolvedMets = defaultMets ?? mets ?? 3.0;
-    final plan = WorkoutPlan(
+
+    final plan = wp.WorkoutPlan(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       name: name,
       currentWeightKg: startWeightKg,
       minReps: minReps,
       maxReps: maxReps,
       incrementKg: incrementKg,
-<<<<<<< HEAD
       mets: resolvedMets,
-=======
-      mets: mets,
->>>>>>> origin/main
     );
+
     await _planBox.put(plan.id, plan);
   }
 
@@ -53,12 +52,12 @@ class WorkoutService {
   }
 
   /// Saves the session to Health Connect/Apple Health and updates plan progression
-  Future<WorkoutLog> logSession({
-    required WorkoutPlan plan,
+  Future<wl.WorkoutLog> logSession({
+    required wp.WorkoutPlan plan,
     required int sets,
     required int achievedReps,
     required bool targetMet,
-    double? overrideMets, // <-- NEW: optional per-session override
+    double? overrideMets, // optional per-session override
   }) async {
     // Decide which METs to use (override > plan default)
     final metsUsed = overrideMets ?? plan.mets;
@@ -83,7 +82,7 @@ class WorkoutService {
     );
 
     // 3) Save local log
-    final log = WorkoutLog(
+    final log = wl.WorkoutLog(
       planId: plan.id,
       date: now,
       expectedWeightKg: plan.currentWeightKg,
@@ -102,15 +101,19 @@ class WorkoutService {
       plan.expectedReps = plan.minReps; // reset to floor
     } else {
       // stay at same weight; nudge target reps upward (bounded)
-      plan.expectedReps =
-          (plan.expectedReps + 1).clamp(plan.minReps, plan.maxReps);
+      final next = (plan.expectedReps + 1).clamp(plan.minReps, plan.maxReps);
+      // clamp returns num; ensure int
+      plan.expectedReps = next is int ? next : next.toInt();
     }
     await plan.save();
 
     return log;
   }
 
-  List<WorkoutLog> getLogsForPlan(String planId) =>
-      _logBox.values.where((l) => l.planId == planId).toList()
+  List<wl.WorkoutLog> getLogsForPlan(String planId) =>
+      _logBox.values
+          .whereType<wl.WorkoutLog>() // guards against any null/dynamic entries
+          .where((l) => l.planId == planId)
+          .toList()
         ..sort((a, b) => b.date.compareTo(a.date));
 }
