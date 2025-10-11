@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:health/health.dart';
 
-import '../../services/workout_service.dart';
-import '../../services/health_service.dart';
+import 'package:fitness_app/services/workout_service.dart';
+import 'package:fitness_app/services/health_service.dart';
 
 // Screens
 import 'create_plan_page.dart';

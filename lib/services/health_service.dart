@@ -375,42 +375,13 @@ class HealthService {
 
 /// ===== Extension: Trends helpers (additions only) =====
 extension HealthServiceTrends on HealthService {
-  /// Steps per day in [start,end) by local day key. Requires READ_STEPS.
-  Future<Map<String, int>> getStepsByDay(
+  /// Steps per day in [start,end] rounded to whole steps.
+  Future<Map<String, int>> getStepsByDayRounded(
       DateTime start,
       DateTime end,
       ) async {
-    await health.configure();
-
-    const types = [HealthDataType.STEPS];
-    final ok = await HealthService.ensureAuthorized(
-      types: types,
-      permissions: const [HealthDataAccess.READ],
-    );
-    if (!ok) return {};
-
-    final map = <String, int>{};
-    for (int i = 0; i <= end.difference(start).inDays; i++) {
-      final day = DateTime(start.year, start.month, start.day).add(Duration(days: i));
-      final dayStart = DateTime(day.year, day.month, day.day);
-      final dayEnd = dayStart.add(const Duration(days: 1));
-
-      final data = await health.getHealthDataFromTypes(
-        startTime: dayStart,
-        endTime: dayEnd,
-        types: types,
-      );
-
-      int steps = 0;
-      for (final dp in data) {
-        final v = dp.value;
-        if (v is NumericHealthValue) {
-          steps += v.numericValue.toInt();
-        }
-      }
-      map[HealthService._yyyyMmDd(dayStart)] = steps;
-    }
-    return map;
+    final raw = await getStepsByDay(start, end);
+    return raw.map((key, value) => MapEntry(key, value.round()));
   }
 
   /// Weight (kg) per day (last value that day) in [start,end).
