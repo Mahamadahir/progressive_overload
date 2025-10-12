@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
+import 'package:fitness_app/database/app_database.dart';
+import 'package:fitness_app/database/database_provider.dart';
+import 'package:fitness_app/repositories/drift_repository.dart';
 import '../services/notification_service.dart';
 
 class TargetsPage extends StatefulWidget {
@@ -28,12 +31,192 @@ class _TargetsPageState extends State<TargetsPage> {
   int defaultMin = 6;
   int defaultMax = 12;
   double defaultIncKg = 2.0;
+  List<MuscleGroup> _flatGroups = const <MuscleGroup>[];
 
   @override
   void initState() {
     super.initState();
     settings = Hive.box('settings');
     _load();
+  }
+
+  List<MuscleGroup> _flattenNodes(List<MuscleGroupNode> nodes) {
+    final result = <MuscleGroup>[];
+    void visit(List<MuscleGroupNode> items) {
+      for (final node in items) {
+        result.add(node.group);
+        if (node.children.isNotEmpty) {
+          visit(node.children);
+        }
+      }
+    }
+
+    visit(nodes);
+    return result;
+  }
+
+  List<Widget> _buildGroupTiles(
+    List<MuscleGroupNode> nodes, {
+    int depth = 0,
+  }) {
+    final indent = depth * 12.0;
+    final tiles = <Widget>[];
+    for (final node in nodes) {
+      tiles.add(
+        Card(
+          margin: EdgeInsets.only(left: indent, bottom: 6),
+          child: ListTile(
+            title: Text(node.group.name),
+            trailing: PopupMenuButton<String>(
+              onSelected: (value) async {
+                switch (value) {
+                  case 'add':
+                    await _showGroupDialog(parentId: node.group.id);
+                    break;
+                  case 'edit':
+                    await _showGroupDialog(group: node.group);
+                    break;
+                  case 'delete':
+                    await _deleteGroup(node.group);
+                    break;
+                }
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'add', child: Text('Add child group')),
+                PopupMenuItem(value: 'edit', child: Text('Rename')),
+                PopupMenuItem(value: 'delete', child: Text('Delete')),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      if (node.children.isNotEmpty) {
+        tiles.addAll(_buildGroupTiles(node.children, depth: depth + 1));
+      }
+    }
+    return tiles;
+  }
+
+  Future<void> _showGroupDialog({MuscleGroup? group, String? parentId}) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final nameCtrl = TextEditingController(text: group?.name ?? '');
+    String? selectedParentId = parentId ?? group?.parentId;
+    final isEdit = group != null;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(isEdit ? 'Edit Muscle Group' : 'Add Muscle Group'),
+          content: StatefulBuilder(
+            builder: (context, setState) {
+              final parentOptions =
+                  _flatGroups.where((g) => g.id != group?.id).toList()
+                    ..sort((a, b) => a.name.compareTo(b.name));
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(labelText: 'Name'),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String?>(
+                    value: selectedParentId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Parent (optional)',
+                    ),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('None'),
+                      ),
+                      ...parentOptions.map(
+                        (g) => DropdownMenuItem<String?>(
+                          value: g.id,
+                          child: Text(g.name),
+                        ),
+                      ),
+                    ],
+                    onChanged: (value) =>
+                        setState(() => selectedParentId = value),
+                  ),
+                ],
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final name = nameCtrl.text.trim();
+                if (name.isEmpty) {
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('Name is required.')),
+                  );
+                  return;
+                }
+                try {
+                  final editingGroup = group;
+                  if (editingGroup != null) {
+                    await driftRepository.updateMuscleGroup(
+                      id: editingGroup.id,
+                      name: name,
+                      parentId: selectedParentId,
+                    );
+                  } else {
+                    await driftRepository.createMuscleGroup(
+                      name,
+                      parentId: selectedParentId,
+                    );
+                  }
+                  if (dialogContext.mounted) Navigator.pop(dialogContext);
+                } on RepositoryException catch (e) {
+                  messenger.showSnackBar(SnackBar(content: Text(e.message)));
+                }
+              },
+              child: Text(isEdit ? 'Save' : 'Add'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteGroup(MuscleGroup group) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete muscle group?'),
+        content: Text('Delete "${group.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    try {
+      await driftRepository.deleteMuscleGroup(group.id);
+    } on RepositoryException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+    }
   }
 
   void _load() {
@@ -55,10 +238,12 @@ class _TargetsPageState extends State<TargetsPage> {
     workoutTime = TimeOfDay(hour: woH, minute: woM);
 
     // Defaults
-    defaultMets = (settings.get('defaultMets', defaultValue: 3.0) as num).toDouble();
+    defaultMets = (settings.get('defaultMets', defaultValue: 3.0) as num)
+        .toDouble();
     defaultMin = settings.get('defaultMinReps', defaultValue: 6);
     defaultMax = settings.get('defaultMaxReps', defaultValue: 12);
-    defaultIncKg = (settings.get('defaultIncKg', defaultValue: 2.0) as num).toDouble();
+    defaultIncKg = (settings.get('defaultIncKg', defaultValue: 2.0) as num)
+        .toDouble();
 
     setState(() {});
   }
@@ -119,8 +304,9 @@ class _TargetsPageState extends State<TargetsPage> {
     }
 
     if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Targets saved')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Targets saved')));
     }
   }
 
@@ -133,8 +319,53 @@ class _TargetsPageState extends State<TargetsPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          const Text(
+            'Muscle Groups',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          StreamBuilder<List<MuscleGroupNode>>(
+            stream: driftRepository.watchMuscleGroupsTree(),
+            builder: (context, snapshot) {
+              final nodes = snapshot.data ?? const [];
+              _flatGroups = _flattenNodes(nodes);
+
+              if (nodes.isEmpty) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 8),
+                    const Text('No muscle groups yet.'),
+                    TextButton.icon(
+                      onPressed: () => _showGroupDialog(),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add muscle group'),
+                    ),
+                  ],
+                );
+              }
+
+              return Column(
+                children: [
+                  const SizedBox(height: 8),
+                  ..._buildGroupTiles(nodes),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () => _showGroupDialog(),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add top-level group'),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 24),
           // ===== Targets =====
-          const Text('Daily Net Loss', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            'Daily Net Loss',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           TextFormField(
             initialValue: targetNetLossKcal.toStringAsFixed(0),
             decoration: const InputDecoration(
@@ -153,7 +384,10 @@ class _TargetsPageState extends State<TargetsPage> {
           const SizedBox(height: 16),
 
           // ===== Steps Goal (NEW) =====
-          const Text('Daily Steps Goal', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            'Daily Steps Goal',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           TextFormField(
             initialValue: stepsGoal.toString(),
             decoration: const InputDecoration(
@@ -183,7 +417,10 @@ class _TargetsPageState extends State<TargetsPage> {
           const SizedBox(height: 24),
 
           // ===== Reminders =====
-          const Text('Reminders', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            'Reminders',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           SwitchListTile(
             title: const Text('Morning weigh-in'),
             value: weighInEnabled,
@@ -244,7 +481,13 @@ class _TargetsPageState extends State<TargetsPage> {
             children: [2.5, 3.0, 5.0].map((m) {
               final selected = defaultMets == m;
               return ChoiceChip(
-                label: Text(m == 2.5 ? 'Light (2.5)' : m == 3.0 ? 'Moderate (3.0)' : 'Vigorous (5.0)'),
+                label: Text(
+                  m == 2.5
+                      ? 'Light (2.5)'
+                      : m == 3.0
+                      ? 'Moderate (3.0)'
+                      : 'Vigorous (5.0)',
+                ),
                 selected: selected,
                 onSelected: (_) => setState(() => defaultMets = m),
               );
@@ -262,3 +505,4 @@ class _TargetsPageState extends State<TargetsPage> {
     );
   }
 }
+

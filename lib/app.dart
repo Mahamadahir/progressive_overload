@@ -7,13 +7,15 @@ import 'screens/trends_page.dart';
 import 'screens/workout_session_page.dart';
 import 'screens/workout_history_page.dart';
 import 'screens/plan_list_page.dart';
-import 'screens/create_plan_page.dart';
+import 'screens/create_workout_page.dart';
 import 'screens/session_page.dart';
 import 'screens/targets_page.dart';
 // NEW pages
 import 'screens/dashboard_page.dart';
 import 'screens/plan_detail_page.dart';
 import 'screens/plan_charts_page.dart';
+import 'screens/exercise_list_page.dart';
+import 'screens/create_exercise_page.dart';
 
 class App extends StatelessWidget {
   const App({super.key});
@@ -38,7 +40,10 @@ class App extends StatelessWidget {
         '/trends': (context) => TrendsPage(),
         '/workout': (context) => WorkoutSessionPage(),
         '/workout_history': (context) => WorkoutHistoryPage(),
-        '/create_plan': (context) => const CreatePlanPage(),
+        '/create_workout': (context) => const CreateWorkoutPage(),
+        '/create_plan': (context) => const CreateWorkoutPage(), // backward compatibility
+        '/exercises': (context) => const ExerciseListPage(),
+        '/exercises/new': (context) => const CreateExercisePage(),
         // Settings renamed to Targets
         '/settings': (context) => const TargetsPage(),
       },

@@ -37,7 +37,7 @@ class _HealthConnectDiagnosticsPageState
   bool installed = false;
   bool hasPerms = false;
 
-  // 🔒 prevent overlapping permission prompts
+  // Guard to prevent overlapping permission prompts
   bool _authBusy = false;
 
   @override
@@ -122,7 +122,7 @@ class _HealthConnectDiagnosticsPageState
       final t = [hcTypes[i]];
       final p = [hcPermissions[i]];
       final ok = await health.hasPermissions(t, permissions: p) ?? false;
-      buf.writeln(' - ${hcTypes[i].name} (${p.first.name}): ${ok ? "✓" : "✗"}');
+      buf.writeln(' - ${hcTypes[i].name} (${p.first.name}): ${ok ? "OK" : "NO"}');
     }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -136,8 +136,7 @@ class _HealthConnectDiagnosticsPageState
       const t = [HealthDataType.TOTAL_CALORIES_BURNED];
       const p = [HealthDataAccess.READ];
 
-      bool? has = await health.hasPermissions(t, permissions: p);
-      has = false;
+      await health.hasPermissions(t, permissions: p); // Warm the plugin cache
       final ok = await health.requestAuthorization(t, permissions: p);
       if (!ok) throw 'READ permission denied for TOTAL_CALORIES_BURNED';
 
@@ -223,7 +222,7 @@ class _HealthConnectDiagnosticsPageState
               ],
             ),
             const SizedBox(height: 16),
-            Text('Permissions: ${hasPerms ? "GRANTED" : "NOT GRANTED"}${_authBusy ? " (requesting…)" : ""}'),
+            Text('Permissions: ${hasPerms ? "GRANTED" : "NOT GRANTED"}${_authBusy ? " (requesting...)" : ""}'),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -331,3 +330,11 @@ class HealthConnectDiagnosticsHelper {
     }
   }
 }
+
+
+
+
+
+
+
+

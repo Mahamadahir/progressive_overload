@@ -2,6 +2,59 @@ import 'package:hive/hive.dart';
 
 part 'workout_plan.g.dart';
 
+@HiveType(typeId: 22)
+class PlanExerciseState {
+  @HiveField(0)
+  String exerciseId;
+
+  @HiveField(1)
+  double startWeightKg;
+
+  @HiveField(2)
+  double currentWeightKg;
+
+  @HiveField(3)
+  int minReps;
+
+  @HiveField(4)
+  int maxReps;
+
+  @HiveField(5)
+  int expectedReps;
+
+  @HiveField(6)
+  double incrementKg;
+
+  @HiveField(7)
+  double mets;
+
+  PlanExerciseState({
+    required this.exerciseId,
+    required this.startWeightKg,
+    required this.currentWeightKg,
+    required this.minReps,
+    required this.maxReps,
+    required this.expectedReps,
+    required this.incrementKg,
+    required this.mets,
+  });
+
+  PlanExerciseState copyWith({
+    double? currentWeightKg,
+    int? expectedReps,
+  }) =>
+      PlanExerciseState(
+        exerciseId: exerciseId,
+        startWeightKg: startWeightKg,
+        currentWeightKg: currentWeightKg ?? this.currentWeightKg,
+        minReps: minReps,
+        maxReps: maxReps,
+        expectedReps: expectedReps ?? this.expectedReps,
+        incrementKg: incrementKg,
+        mets: mets,
+      );
+}
+
 @HiveType(typeId: 20)
 class WorkoutPlan extends HiveObject {
   @HiveField(0)
@@ -32,6 +85,16 @@ class WorkoutPlan extends HiveObject {
   @HiveField(8)
   double mets;
 
+  @HiveField(9)
+  List<String> targetMuscleGroupIds;
+
+  @HiveField(10)
+  String? defaultExerciseId;
+
+  /// Collection of exercises configured for this workout.
+  @HiveField(11)
+  List<PlanExerciseState> exercises;
+
   WorkoutPlan({
     required this.id,
     required this.name,
@@ -42,8 +105,40 @@ class WorkoutPlan extends HiveObject {
     int? expectedReps,
     DateTime? createdAt,
     this.mets = 3.0,
-  })  : expectedReps = expectedReps ?? minReps,
-        createdAt = createdAt ?? DateTime.now();
+    List<String>? targetMuscleGroupIds,
+    this.defaultExerciseId,
+    List<PlanExerciseState>? exercises,
+  }) : expectedReps = expectedReps ?? minReps,
+       createdAt = createdAt ?? DateTime.now(),
+       targetMuscleGroupIds = List<String>.from(
+         targetMuscleGroupIds ?? const [],
+       ),
+       exercises = List<PlanExerciseState>.from(exercises ?? const []) {
+    _syncFromPrimaryExercise();
+  }
+
+  PlanExerciseState? get primaryExercise =>
+      exercises.isEmpty ? null : exercises.first;
+
+  void _syncFromPrimaryExercise() {
+    final primary = primaryExercise;
+    if (primary == null) return;
+    currentWeightKg = primary.currentWeightKg;
+    minReps = primary.minReps;
+    maxReps = primary.maxReps;
+    expectedReps = primary.expectedReps;
+    incrementKg = primary.incrementKg;
+    mets = primary.mets;
+  }
+
+  void updatePrimaryFromState(PlanExerciseState state) {
+    currentWeightKg = state.currentWeightKg;
+    minReps = state.minReps;
+    maxReps = state.maxReps;
+    expectedReps = state.expectedReps;
+    incrementKg = state.incrementKg;
+    mets = state.mets;
+  }
 }
 
 @HiveType(typeId: 21)
@@ -88,3 +183,4 @@ class WorkoutLog extends HiveObject {
     required this.metsUsed,
   });
 }
+

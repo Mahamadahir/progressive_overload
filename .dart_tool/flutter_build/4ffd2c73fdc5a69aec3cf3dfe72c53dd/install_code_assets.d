@@ -1,0 +1,1 @@
+ C:\\Users\\Mrmah\\Projects\\fitness_app\\.dart_tool\\flutter_build\\4ffd2c73fdc5a69aec3cf3dfe72c53dd\\native_assets.json: 

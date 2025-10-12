@@ -9,7 +9,7 @@ import 'models/meal_log.dart' show MealLog, MealLogAdapter;
 import 'models/food_component.dart';
 import 'models/meal_component_line.dart'; // provides both line + snapshot
 import 'models/calorie_entry.dart';
-import 'models/workout_plan.dart' show WorkoutPlan, WorkoutPlanAdapter; // scoped
+import 'models/workout_plan.dart' show PlanExerciseState, PlanExerciseStateAdapter, WorkoutPlan, WorkoutPlanAdapter; // scoped
 import 'models/workout_log.dart' show WorkoutLog, WorkoutLogAdapter;     // scoped
 
 // Services
@@ -19,6 +19,7 @@ import 'services/meal_service.dart';
 // App + Health
 import 'app.dart';
 import 'health_singleton.dart';
+import 'database/database_provider.dart';
 
 class HealthBootstrapper extends StatefulWidget {
   final Widget child;
@@ -60,7 +61,7 @@ Future<void> bootstrap() async {
     }
   }
 
-  registerAdapterSafely<CalorieEntry>(CalorieEntryAdapter());
+  registerAdapterSafely<CalorieEntry>(CalorieEntryAdapter());\n  registerAdapterSafely<PlanExerciseState>(PlanExerciseStateAdapter());
   registerAdapterSafely<WorkoutPlan>(WorkoutPlanAdapter());
   registerAdapterSafely<WorkoutLog>(WorkoutLogAdapter());        // NEW
   registerAdapterSafely<MealTemplate>(MealTemplateAdapter());
@@ -84,6 +85,9 @@ Future<void> bootstrap() async {
 
   // ---------- Seed defaults ----------
   await MealService().seedDefaultsIfEmpty();
+
+  // ---------- Initialize Drift (SQLite) ----------
+  await initDriftDatabase();
 }
 
 void main() async {
@@ -99,3 +103,5 @@ void main() async {
     ),
   );
 }
+
+

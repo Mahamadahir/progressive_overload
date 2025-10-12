@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
+import 'package:fitness_app/database/database_provider.dart';
 import 'package:fitness_app/models/workout_plan.dart';
+import 'package:fitness_app/repositories/drift_repository.dart';
 import 'package:fitness_app/services/workout_service.dart';
-import 'session_page.dart';
+import 'edit_plan_page.dart';
 import 'plan_charts_page.dart';
+import 'session_page.dart';
 
 class PlanDetailPage extends StatefulWidget {
   final String planId;
@@ -23,175 +26,6 @@ class _PlanDetailPageState extends State<PlanDetailPage> {
     plan = Hive.box<WorkoutPlan>('plans').get(widget.planId)!;
   }
 
-  Future<void> _openEditPlanSheet() async {
-    final nameCtrl = TextEditingController(text: plan.name);
-    final weightCtrl = TextEditingController(text: plan.currentWeightKg.toStringAsFixed(1));
-    final minRepsCtrl = TextEditingController(text: plan.minReps.toString());
-    final maxRepsCtrl = TextEditingController(text: plan.maxReps.toString());
-    final incCtrl = TextEditingController(text: plan.incrementKg.toStringAsFixed(1));
-    double metsLocal = plan.mets;
-
-    final formKey = GlobalKey<FormState>();
-    final metOptions = [2.5, 3.0, 5.0];
-    final metLabels = {2.5: 'Light', 3.0: 'Moderate', 5.0: 'Vigorous'};
-
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            top: 8,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-          ),
-          child: StatefulBuilder(
-            builder: (context, setSheetState) {
-              return Form(
-                key: formKey,
-                child: ListView(
-                  shrinkWrap: true,
-                  children: [
-                    const SizedBox(height: 8),
-                    const Text('Edit Plan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: nameCtrl,
-                      decoration: const InputDecoration(labelText: 'Exercise name'),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: weightCtrl,
-                      decoration: const InputDecoration(labelText: 'Current weight (kg)'),
-                      keyboardType: TextInputType.number,
-                      validator: (v) {
-                        final d = double.tryParse(v ?? '');
-                        if (d == null || d <= 0) return 'Enter a positive number';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: minRepsCtrl,
-                            decoration: const InputDecoration(labelText: 'Min reps'),
-                            keyboardType: TextInputType.number,
-                            validator: (v) {
-                              final x = int.tryParse(v ?? '');
-                              if (x == null || x <= 0) return 'Enter a positive int';
-                              return null;
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextFormField(
-                            controller: maxRepsCtrl,
-                            decoration: const InputDecoration(labelText: 'Max reps'),
-                            keyboardType: TextInputType.number,
-                            validator: (v) {
-                              final x = int.tryParse(v ?? '');
-                              if (x == null || x <= 0) return 'Enter a positive int';
-                              return null;
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: incCtrl,
-                      decoration: const InputDecoration(labelText: 'Increment (kg)'),
-                      keyboardType: TextInputType.number,
-                      validator: (v) {
-                        final d = double.tryParse(v ?? '');
-                        if (d == null || d <= 0) return 'Enter a positive number';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    const Text('Default intensity (METs)'),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      children: metOptions.map((m) {
-                        final selected = metsLocal == m;
-                        return ChoiceChip(
-                          label: Text('${metLabels[m]} (${m.toStringAsFixed(1)})'),
-                          selected: selected,
-                          onSelected: (_) => setSheetState(() => metsLocal = m),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.save),
-                      label: const Text('Save'),
-                      onPressed: () async {
-                        if (!formKey.currentState!.validate()) return;
-
-                        final newName = nameCtrl.text.trim();
-                        final newWeight = double.parse(weightCtrl.text);
-                        final newMin = int.parse(minRepsCtrl.text);
-                        final newMax = int.parse(maxRepsCtrl.text);
-                        final newInc = double.parse(incCtrl.text);
-
-                        if (newMin > newMax) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Min reps cannot be greater than max reps')),
-                          );
-                          return;
-                        }
-
-                        // Apply updates
-                        plan.name = newName;
-                        plan.currentWeightKg = newWeight;
-                        final prevMin = plan.minReps;
-                        final prevMax = plan.maxReps;
-                        plan.minReps = newMin;
-                        plan.maxReps = newMax;
-                        plan.incrementKg = newInc;
-                        plan.mets = metsLocal;
-
-                        // Keep expectedReps within [min..max]
-                        if (plan.expectedReps < plan.minReps || plan.expectedReps > plan.maxReps) {
-                          // If the bounds changed, clamp expected reps to the new range
-                          plan.expectedReps = plan.expectedReps.clamp(plan.minReps, plan.maxReps);
-                          // If previous range was invalid and we had no sensible value, default to min
-                          if (plan.expectedReps < plan.minReps || plan.expectedReps > plan.maxReps) {
-                            plan.expectedReps = plan.minReps;
-                          }
-                        }
-
-                        await plan.save();
-                        if (!mounted) return;
-                        setState(() {
-                          plan = Hive.box<WorkoutPlan>('plans').get(widget.planId)!;
-                        });
-                        Navigator.pop(context);
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Cancel'),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                ),
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final logs = service.getLogsForPlan(plan.id);
@@ -200,21 +34,40 @@ class _PlanDetailPageState extends State<PlanDetailPage> {
         title: Text(plan.name),
         actions: [
           IconButton(
-            tooltip: 'Edit plan',
-            onPressed: _openEditPlanSheet,
+            tooltip: 'Edit workout',
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => EditPlanPage(planId: plan.id),
+                ),
+              );
+              if (!mounted) return;
+              setState(() {
+                plan = Hive.box<WorkoutPlan>('plans').get(widget.planId)!;
+              });
+            },
             icon: const Icon(Icons.edit),
           ),
           IconButton(
-            tooltip: 'Delete plan',
+            tooltip: 'Delete workout',
             onPressed: () async {
               final ok = await showDialog<bool>(
                 context: context,
                 builder: (_) => AlertDialog(
-                  title: const Text('Delete Plan?'),
-                  content: const Text('This removes the plan (logs remain). Continue?'),
+                  title: const Text('Delete workout?'),
+                  content: const Text(
+                    'This removes the workout (logs remain). Continue?',
+                  ),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                    TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Delete'),
+                    ),
                   ],
                 ),
               );
@@ -229,7 +82,10 @@ class _PlanDetailPageState extends State<PlanDetailPage> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          await Navigator.push(context, MaterialPageRoute(builder: (_) => SessionPage(planId: plan.id)));
+          await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => SessionPage(planId: plan.id)),
+          );
           if (!mounted) return;
           setState(() {
             plan = Hive.box<WorkoutPlan>('plans').get(widget.planId)!;
@@ -241,14 +97,117 @@ class _PlanDetailPageState extends State<PlanDetailPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Card(
-            child: ListTile(
-              title: const Text('Next up'),
-              subtitle: Text(
-                "${plan.currentWeightKg.toStringAsFixed(1)} kg Ã— ${plan.expectedReps} reps"
-                    "  â€¢  ${plan.mets.toStringAsFixed(1)} METs",
-              ),
-            ),
+          StreamBuilder<List<MuscleGroupNode>>(
+            stream: driftRepository.watchMuscleGroupsTree(),
+            builder: (context, snapshot) {
+              final nodes = snapshot.data ?? const [];
+              final map = <String, String>{};
+              void visit(List<MuscleGroupNode> items) {
+                for (final node in items) {
+                  map[node.group.id] = node.group.name;
+                  if (node.children.isNotEmpty) {
+                    visit(node.children);
+                  }
+                }
+              }
+
+              visit(nodes);
+              final targets =
+                  plan.targetMuscleGroupIds
+                      .map((id) => map[id] ?? 'Unknown')
+                      .toList()
+                    ..sort();
+              final label = targets.isEmpty
+                  ? 'No muscle groups selected'
+                  : targets.join(', ');
+
+              return Card(
+                child: ListTile(
+                  title: const Text('Target muscle group(s)'),
+                  subtitle: Text(label),
+                ),
+              );
+            },
+      ),
+          const SizedBox(height: 12),
+          StreamBuilder<List<ExerciseDetail>>(
+            stream: driftRepository.watchExercises(),
+            builder: (context, snapshot) {
+              final details = {
+                for (final detail in snapshot.data ?? const [])
+                  detail.exercise.id: detail,
+              };
+
+              final tiles = <Widget>[];
+              if (plan.exercises.isEmpty) {
+                tiles.add(
+                  const ListTile(
+                    title: Text('Exercises'),
+                    subtitle: Text('No exercises linked to this workout.'),
+                  ),
+                );
+              } else {
+                tiles.add(const ListTile(title: Text('Exercises')));
+                tiles.add(const Divider(height: 1));
+                for (var i = 0; i < plan.exercises.length; i++) {
+                  final state = plan.exercises[i];
+                  final detail = details[state.exerciseId];
+                  final name = detail?.exercise.name ?? 'Exercise';
+                  final groupNames = detail == null
+                      ? null
+                      : detail.groups.map((g) => g.name).join(', ');
+                  final info =
+                      'Current: ${state.currentWeightKg.toStringAsFixed(1)} kg · '
+                      'Target: ${state.expectedReps} reps · '
+                      'Increment: ${state.incrementKg.toStringAsFixed(1)} kg · '
+                      'METs: ${state.mets.toStringAsFixed(1)}';
+                  tiles.add(
+                    ListTile(
+                      title: Text(name),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(info),
+                          if (groupNames != null && groupNames.isNotEmpty)
+                            Text(
+                              groupNames,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                  if (i != plan.exercises.length - 1) {
+                    tiles.add(const Divider(height: 1));
+                  }
+                }
+              }
+
+              final defaultId = plan.defaultExerciseId ??
+                  (plan.exercises.isNotEmpty
+                      ? plan.exercises.first.exerciseId
+                      : null);
+              final defaultName = defaultId == null
+                  ? null
+                  : details[defaultId]?.exercise.name ?? 'Exercise';
+
+              tiles.add(const Divider(height: 1));
+              tiles.add(
+                ListTile(
+                  title: const Text('Next up'),
+                  subtitle: Text(
+                    [
+                      if (defaultName != null) 'Exercise: $defaultName',
+                      'Weight: ${plan.currentWeightKg.toStringAsFixed(1)} kg',
+                      'Target reps: ${plan.expectedReps}',
+                      'METs: ${plan.mets.toStringAsFixed(1)}',
+                    ].join(' · '),
+                  ),
+                ),
+              );
+
+              return Card(child: Column(children: tiles));
+            },
           ),
           const SizedBox(height: 12),
           Row(
@@ -258,7 +217,9 @@ class _PlanDetailPageState extends State<PlanDetailPage> {
                   onPressed: () async {
                     await Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => PlanChartsPage(planId: plan.id)),
+                      MaterialPageRoute(
+                        builder: (_) => PlanChartsPage(planId: plan.id),
+                      ),
                     );
                   },
                   icon: const Icon(Icons.show_chart),
@@ -271,7 +232,9 @@ class _PlanDetailPageState extends State<PlanDetailPage> {
                   onPressed: () async {
                     await Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => SessionPage(planId: plan.id)),
+                      MaterialPageRoute(
+                        builder: (_) => SessionPage(planId: plan.id),
+                      ),
                     );
                     if (!mounted) return;
                     setState(() {
@@ -285,23 +248,35 @@ class _PlanDetailPageState extends State<PlanDetailPage> {
             ],
           ),
           const SizedBox(height: 16),
-          const Text('Recent sessions', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            'Recent sessions',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
           if (logs.isEmpty)
             const Text('No sessions yet.')
           else
-            ...logs.take(10).map((l) => Card(
-              child: ListTile(
-                title: Text(
-                    "${l.date.toLocal()} â€¢ ${l.expectedWeightKg.toStringAsFixed(1)}kg Ã— ${l.expectedReps} (exp)"),
-                subtitle: Text(
-                    "Sets ${l.sets}, Reps ${l.achievedReps}, Target ${l.targetMet ? "met" : "missed"}, "
-                        "Energy ${l.energyKcal.toStringAsFixed(0)} kcal, ${l.metsUsed.toStringAsFixed(1)} METs"),
-              ),
-            )),
+            ...logs
+                .take(10)
+                .map(
+                  (l) => Card(
+                    child: ListTile(
+                      title: Text(
+                        "${l.date.toLocal()} · ${l.expectedWeightKg.toStringAsFixed(1)}kg x ${l.expectedReps} (exp)",
+                      ),
+                      subtitle: Text(
+                        "Sets ${l.sets}, Reps ${l.achievedReps}, Target ${l.targetMet ? "met" : "missed"}, "
+                        "Energy ${l.energyKcal.toStringAsFixed(0)} kcal, ${l.metsUsed.toStringAsFixed(1)} METs",
+                      ),
+                    ),
+                  ),
+                ),
           const SizedBox(height: 80),
         ],
       ),
     );
   }
 }
+
+
+
