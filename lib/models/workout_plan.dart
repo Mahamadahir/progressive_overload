@@ -120,24 +120,40 @@ class WorkoutPlan extends HiveObject {
   PlanExerciseState? get primaryExercise =>
       exercises.isEmpty ? null : exercises.first;
 
-  void _syncFromPrimaryExercise() {
-    final primary = primaryExercise;
-    if (primary == null) return;
-    currentWeightKg = primary.currentWeightKg;
-    minReps = primary.minReps;
-    maxReps = primary.maxReps;
-    expectedReps = primary.expectedReps;
-    incrementKg = primary.incrementKg;
-    mets = primary.mets;
+  PlanExerciseState? get defaultExerciseState {
+    if (exercises.isEmpty) return null;
+    if (defaultExerciseId == null) {
+      return primaryExercise;
+    }
+    for (final state in exercises) {
+      if (state.exerciseId == defaultExerciseId) {
+        return state;
+      }
+    }
+    return primaryExercise;
   }
 
-  void updatePrimaryFromState(PlanExerciseState state) {
+  void _syncFromPrimaryExercise() {
+    final state = defaultExerciseState;
+    if (state == null) return;
     currentWeightKg = state.currentWeightKg;
     minReps = state.minReps;
     maxReps = state.maxReps;
     expectedReps = state.expectedReps;
     incrementKg = state.incrementKg;
     mets = state.mets;
+  }
+
+  void updatePrimaryFromState(PlanExerciseState state) {
+    if (state.exerciseId == defaultExerciseId ||
+        defaultExerciseId == null && primaryExercise == state) {
+      currentWeightKg = state.currentWeightKg;
+      minReps = state.minReps;
+      maxReps = state.maxReps;
+      expectedReps = state.expectedReps;
+      incrementKg = state.incrementKg;
+      mets = state.mets;
+    }
   }
 }
 
