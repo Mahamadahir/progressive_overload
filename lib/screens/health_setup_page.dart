@@ -10,7 +10,7 @@ class HealthSetupPage extends StatefulWidget {
   const HealthSetupPage({super.key});
 
   @override
-  _HealthSetupPageState createState() => _HealthSetupPageState();
+  State<HealthSetupPage> createState() => _HealthSetupPageState();
 }
 
 class _HealthSetupPageState extends State<HealthSetupPage> {

@@ -270,12 +270,12 @@ class _CreateWorkoutPageState extends State<CreateWorkoutPage> {
                                         _selectedExerciseIds.contains(id);
                                     final groupNames = detail.groups
                                         .map((g) => g.name)
-                                        .join(' · ');
+                                        .join(' ï¿½ ');
                                     final secondary = [
                                       'Start ${exercise.startWeightKg.toStringAsFixed(1)} kg',
                                       '${exercise.minReps}-${exercise.maxReps} reps',
                                       '${exercise.incrementKg.toStringAsFixed(1)} kg inc',
-                                    ].join(' · ');
+                                    ].join(' ï¿½ ');
                                     return CheckboxListTile(
                                       value: checked,
                                       controlAffinity:
@@ -322,7 +322,7 @@ class _CreateWorkoutPageState extends State<CreateWorkoutPage> {
                                   if (_selectedExerciseIds.isNotEmpty) ...[
                                     const SizedBox(height: 12),
                                     DropdownButtonFormField<String>(
-                                      value: _resolveDefaultExerciseId(),
+                                      initialValue: _resolveDefaultExerciseId(),
                                       isExpanded: true,
                                       decoration: const InputDecoration(
                                         labelText: 'Default exercise',

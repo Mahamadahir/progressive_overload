@@ -50,9 +50,9 @@ class _WorkoutSessionPageState extends State<WorkoutSessionPage> {
       if (latestWeight == null) throw Exception("No weight data found");
 
       // 2) Calculate MET-based energy expenditure
-      const MET = 3.0;
+      const metValue = 3.0;
       final durationHrs = durationSec / 3600.0;
-      final energyKcalDouble = durationHrs * latestWeight * MET;
+      final energyKcalDouble = durationHrs * latestWeight * metValue;
 
       // 3) Save workout session
       final now = DateTime.now();

@@ -122,11 +122,8 @@ LazyDatabase _openConnection() {
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
-  AppDatabase.forTesting(QueryExecutor executor) : super(executor);
+  AppDatabase.forTesting(super.executor);
 
-  late final MuscleGroupDao muscleGroupDao = MuscleGroupDao(this);
-  late final ExerciseDao exerciseDao = ExerciseDao(this);
-  late final WorkoutDao workoutDao = WorkoutDao(this);
 
   @override
   int get schemaVersion => 1;
@@ -186,7 +183,7 @@ class _PresetGroup {
 @DriftAccessor(tables: [MuscleGroups])
 class MuscleGroupDao extends DatabaseAccessor<AppDatabase>
     with _$MuscleGroupDaoMixin {
-  MuscleGroupDao(AppDatabase db) : super(db);
+  MuscleGroupDao(super.db);
 
   Stream<List<MuscleGroup>> watchAll() => select(muscleGroups).watch();
 
@@ -209,7 +206,7 @@ class MuscleGroupDao extends DatabaseAccessor<AppDatabase>
 @DriftAccessor(tables: [Exercises, ExerciseMuscleGroups])
 class ExerciseDao extends DatabaseAccessor<AppDatabase>
     with _$ExerciseDaoMixin {
-  ExerciseDao(AppDatabase db) : super(db);
+  ExerciseDao(super.db);
 
   Stream<List<Exercise>> watchAll() => select(exercises).watch();
 
@@ -265,7 +262,7 @@ class ExerciseDao extends DatabaseAccessor<AppDatabase>
 
 @DriftAccessor(tables: [Workouts, WorkoutLogs])
 class WorkoutDao extends DatabaseAccessor<AppDatabase> with _$WorkoutDaoMixin {
-  WorkoutDao(AppDatabase db) : super(db);
+  WorkoutDao(super.db);
 
   Stream<List<Workout>> watchAllWorkouts() => select(workouts).watch();
 

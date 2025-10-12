@@ -153,13 +153,12 @@ class _PlanDetailPageState extends State<PlanDetailPage> {
                   final state = plan.exercises[i];
                   final detail = details[state.exerciseId];
                   final name = detail?.exercise.name ?? 'Exercise';
-                  final groupNames = detail == null
-                      ? null
-                      : detail.groups.map((g) => g.name).join(', ');
+                  final groupNames = detail?.groups.map((g) => g.name).join(', ');
                   final info =
-                      'Current: ${state.currentWeightKg.toStringAsFixed(1)} kg · '
-                      'Target: ${state.expectedReps} reps · '
-                      'Increment: ${state.incrementKg.toStringAsFixed(1)} kg · '
+                      'Start: ${state.startWeightKg.toStringAsFixed(1)} kg  '
+                      'Current: ${state.currentWeightKg.toStringAsFixed(1)} kg  '
+                      'Reps: ${state.minReps}-${state.maxReps} (target ${state.expectedReps})  '
+                      'Increment: ${state.incrementKg.toStringAsFixed(1)} kg  '
                       'METs: ${state.mets.toStringAsFixed(1)}';
                   tiles.add(
                     ListTile(
@@ -190,18 +189,28 @@ class _PlanDetailPageState extends State<PlanDetailPage> {
               final defaultName = defaultId == null
                   ? null
                   : details[defaultId]?.exercise.name ?? 'Exercise';
+              final defaultState = plan.defaultExerciseState;
 
               tiles.add(const Divider(height: 1));
               tiles.add(
                 ListTile(
                   title: const Text('Next up'),
                   subtitle: Text(
-                    [
-                      if (defaultName != null) 'Exercise: $defaultName',
-                      'Weight: ${plan.currentWeightKg.toStringAsFixed(1)} kg',
-                      'Target reps: ${plan.expectedReps}',
-                      'METs: ${plan.mets.toStringAsFixed(1)}',
-                    ].join(' · '),
+                    () {
+                      final parts = <String>[];
+                      if (defaultName != null) {
+                        parts.add('Exercise: $defaultName');
+                      }
+                      if (defaultState != null) {
+                        parts.add('Weight: ${defaultState.currentWeightKg.toStringAsFixed(1)} kg');
+                        parts.add('Reps: ${defaultState.expectedReps} (min ${defaultState.minReps}-${defaultState.maxReps})');
+                        parts.add('Increment: ${defaultState.incrementKg.toStringAsFixed(1)} kg');
+                        parts.add('METs: ${defaultState.mets.toStringAsFixed(1)}');
+                      } else {
+                        parts.add('No exercises configured yet');
+                      }
+                      return parts.join(' - ');
+                    }(),
                   ),
                 ),
               );
@@ -262,7 +271,7 @@ class _PlanDetailPageState extends State<PlanDetailPage> {
                   (l) => Card(
                     child: ListTile(
                       title: Text(
-                        "${l.date.toLocal()} · ${l.expectedWeightKg.toStringAsFixed(1)}kg x ${l.expectedReps} (exp)",
+                        "${l.date.toLocal()}  ${l.expectedWeightKg.toStringAsFixed(1)}kg x ${l.expectedReps} (exp)",
                       ),
                       subtitle: Text(
                         "Sets ${l.sets}, Reps ${l.achievedReps}, Target ${l.targetMet ? "met" : "missed"}, "

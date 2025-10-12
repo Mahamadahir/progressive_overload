@@ -36,11 +36,25 @@ void main() {
     final groups = await repository.getMuscleGroupsTree();
     final groupId = groups.first.group.id;
 
-    final exerciseId = await repository.createExercise(\n      name: 'Push-up',\n      notes: 'Bodyweight',\n      groupIds: [groupId],\n      startWeightKg: 20,\n      minReps: 6,\n      maxReps: 12,\n      incrementKg: 2,\n      defaultMets: 3.0,\n    );
+    final exerciseId = await repository.createExercise(
+      name: 'Push-up',
+      notes: 'Bodyweight',
+      groupIds: [groupId],
+      startWeightKg: 20,
+      minReps: 6,
+      maxReps: 12,
+      incrementKg: 2,
+      defaultMets: 3.0,
+    );
 
     final detail = await repository.getExercise(exerciseId);
     expect(detail, isNotNull);
-    expect(detail!.groups.single.id, equals(groupId));\n    expect(detail.exercise.startWeightKg, equals(20));\n    expect(detail.exercise.minReps, equals(6));\n    expect(detail.exercise.maxReps, equals(12));\n    expect(detail.exercise.incrementKg, equals(2));\n    expect(detail.exercise.defaultMets, equals(3.0));
+    expect(detail!.groups.single.id, equals(groupId));
+    expect(detail.exercise.startWeightKg, equals(20));
+    expect(detail.exercise.minReps, equals(6));
+    expect(detail.exercise.maxReps, equals(12));
+    expect(detail.exercise.incrementKg, equals(2));
+    expect(detail.exercise.defaultMets, equals(3.0));
   });
 
   test('logWorkout inserts workout logs', () async {

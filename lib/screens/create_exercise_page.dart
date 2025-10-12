@@ -22,8 +22,8 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
   final _maxRepsCtrl = TextEditingController(text: '12');
   final _incrementCtrl = TextEditingController(text: '2.0');
   double _defaultMets = 3.0;
-  final List<double> _metOptions = const [2.5, 3.0, 5.0];
-  final Map<double, String> _metLabels = const {
+  final List<double> _metOptions = [2.5, 3.0, 5.0];
+  final Map<double, String> _metLabels = {
     2.5: 'Light',
     3.0: 'Moderate',
     5.0: 'Vigorous',

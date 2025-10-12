@@ -121,11 +121,13 @@ class _SessionPageState extends State<SessionPage> {
             detail.exercise.id: detail,
         };
         final activeState = _activeState;
-        final defaultMets = activeState?.mets ?? plan.mets;
+        final fallbackState = plan.defaultExerciseState;
+        final effectiveState = activeState ?? fallbackState;
+        final defaultMets = effectiveState?.mets ?? 3.0;
         final expectedWeight =
-            activeState?.currentWeightKg ?? plan.currentWeightKg;
+            effectiveState?.currentWeightKg ?? 0;
         final expectedReps =
-            activeState?.expectedReps ?? plan.expectedReps;
+            effectiveState?.expectedReps ?? 0;
         final activeName = activeState == null
             ? null
             : details[activeState.exerciseId]?.exercise.name;
@@ -194,7 +196,7 @@ class _SessionPageState extends State<SessionPage> {
                           decoration: BoxDecoration(
                             color: Theme.of(context)
                                 .colorScheme
-                                .surfaceVariant,
+                                .surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Text(
@@ -205,7 +207,7 @@ class _SessionPageState extends State<SessionPage> {
                         Padding(
                           padding: const EdgeInsets.only(bottom: 16),
                           child: DropdownButtonFormField<String>(
-                            value: activeState?.exerciseId,
+                            initialValue: activeState?.exerciseId,
                             decoration: const InputDecoration(
                               labelText: 'Exercise',
                             ),
@@ -371,7 +373,7 @@ class _SessionPageState extends State<SessionPage> {
                                     achievedReps: reps,
                                     targetMet: _targetMet,
                                     overrideMets: _overrideMets,
-                                    exerciseId: activeState!.exerciseId,
+                                    exerciseId: activeState.exerciseId,
                                   );
                                   final refreshedPlan =
                                       Hive.box<WorkoutPlan>('plans')
@@ -381,12 +383,16 @@ class _SessionPageState extends State<SessionPage> {
                                     _ensureActiveExercise();
                                     final updatedState =
                                         _stateFor(activeState.exerciseId);
+                                    final fallbackState =
+                                        plan.defaultExerciseState;
                                     final nextWeight =
                                         updatedState?.currentWeightKg ??
-                                        plan.currentWeightKg;
+                                        fallbackState?.currentWeightKg ??
+                                        0;
                                     final nextReps =
                                         updatedState?.expectedReps ??
-                                        plan.expectedReps;
+                                        fallbackState?.expectedReps ??
+                                        0;
                                     _result =
                                         'Saved!\nEnergy: ${log.energyKcal.toStringAsFixed(1)} kcal\nNext: ${nextWeight.toStringAsFixed(1)} kg x $nextReps reps';
                                   });

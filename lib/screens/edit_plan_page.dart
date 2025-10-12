@@ -44,15 +44,6 @@ class _EditPlanPageState extends State<EditPlanPage> {
     super.dispose();
   }
 
-  PlanExerciseState? _planStateFor(String id) {
-    for (final state in plan.exercises) {
-      if (state.exerciseId == id) {
-        return state;
-      }
-    }
-    return null;
-  }
-
   String? _resolveDefaultExerciseId() {
     if (_defaultExerciseId != null &&
         _selectedExerciseIds.contains(_defaultExerciseId)) {
@@ -332,7 +323,7 @@ class _EditPlanPageState extends State<EditPlanPage> {
                                 if (_selectedExerciseIds.isNotEmpty) ...[
                                   const SizedBox(height: 12),
                                   DropdownButtonFormField<String>(
-                                    value: _resolveDefaultExerciseId(),
+                                    initialValue: _resolveDefaultExerciseId(),
                                     isExpanded: true,
                                     decoration: const InputDecoration(
                                       labelText: 'Default exercise',
@@ -397,7 +388,6 @@ class _SelectableGroup {
 
   _SelectableGroup(this.group, this.depth);
 }
-
 
 
 

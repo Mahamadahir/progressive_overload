@@ -390,7 +390,7 @@ class _LogCaloriesPageState extends State<LogCaloriesPage> {
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<FoodComponent>(
-                            value: le.component,
+                            initialValue: le.component,
                             items: _components.map((c) =>
                                 DropdownMenuItem(value: c, child: Text(c.name))).toList(),
                             onChanged: (c) => setState(() { le.component = c; }),
@@ -476,7 +476,7 @@ class _LogCaloriesPageState extends State<LogCaloriesPage> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<MealTemplate>(
-                      value: _selectedTemplate,
+                      initialValue: _selectedTemplate,
                       items: _templates.map((t) =>
                           DropdownMenuItem(value: t, child: Text(t.name))).toList(),
                       onChanged: (t) => setState(() {
@@ -519,7 +519,7 @@ class _LogCaloriesPageState extends State<LogCaloriesPage> {
                         children: [
                           Expanded(
                             child: DropdownButtonFormField<FoodComponent>(
-                              value: le.component,
+                              initialValue: le.component,
                               items: _components.map((c) =>
                                   DropdownMenuItem(value: c, child: Text(c.name))).toList(),
                               onChanged: (c) => setState(() { le.component = c; }),
@@ -601,7 +601,7 @@ class _LogCaloriesPageState extends State<LogCaloriesPage> {
                   ),
                 ),
               );
-            }).toList(),
+            }),
           ],
         ),
       ),

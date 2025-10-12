@@ -229,8 +229,16 @@ class _DashboardPageState extends State<DashboardPage> {
                               child: ListTile(
                                 title: Text(p.name),
                                 subtitle: Text(
-                                  "Next up: ${p.currentWeightKg.toStringAsFixed(1)} kg × ${p.expectedReps} reps"
-                                  "  •  ${p.mets.toStringAsFixed(1)} METs",
+                                  () {
+                                    final defaultState = p.defaultExerciseState;
+                                    if (defaultState == null) {
+                                      return 'No exercises configured yet';
+                                    }
+                                    return 'Next up: '
+                                        '${defaultState.currentWeightKg.toStringAsFixed(1)} kg x '
+                                        '${defaultState.expectedReps} reps - '
+                                        '${defaultState.mets.toStringAsFixed(1)} METs';
+                                  }(),
                                 ),
                                 trailing: const Icon(Icons.chevron_right),
                                 onTap: () async {

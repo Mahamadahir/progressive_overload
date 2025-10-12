@@ -124,7 +124,7 @@ class _TargetsPageState extends State<TargetsPage> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String?>(
-                    value: selectedParentId,
+                    initialValue: selectedParentId,
                     isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Parent (optional)',

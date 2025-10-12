@@ -462,9 +462,6 @@ extension HealthServiceTrends on HealthService {
     return map;
   }
 
-  // Local formatter for this extension (kept private to the library).
-  static String _yyyyMmDd(DateTime d) =>
-      "${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}";
 }
 
 /// ===== Cache-aware, day-granular fetchers (today always refetched) =====

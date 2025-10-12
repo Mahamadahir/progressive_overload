@@ -116,15 +116,18 @@ class _PlanListPageState extends State<PlanListPage> {
                         children: [
                           Text('Targets: $targetLabel'),
                           Text(
-                            'Exercises: $exerciseCount' +
-                                (defaultName == null
+                            'Exercises: $exerciseCount${defaultName == null
                                     ? ''
-                                    : ' · Default: $defaultName'),
+                                    : '  Default: $defaultName'}',
                           ),
                           Text(
-                            'Next: ${plan.currentWeightKg.toStringAsFixed(1)} kg · '
-                            '${plan.expectedReps} reps · '
-                            '${plan.mets.toStringAsFixed(1)} METs',
+                            () {
+                              final defaultState = plan.defaultExerciseState;
+                              if (defaultState == null) {
+                                return 'Next: No exercises configured yet';
+                              }
+                              return 'Next: ${defaultState.currentWeightKg.toStringAsFixed(1)} kg x ${defaultState.expectedReps} reps - ${defaultState.mets.toStringAsFixed(1)} METs';
+                            }(),
                           ),
                         ],
                       ),

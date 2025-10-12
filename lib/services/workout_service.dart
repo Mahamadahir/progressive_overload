@@ -297,7 +297,7 @@ class WorkoutService {
       // stay at same weight; nudge target reps upward (bounded)
       final next = (state.expectedReps + 1).clamp(state.minReps, state.maxReps);
       // clamp returns num; ensure int
-      state.expectedReps = next is int ? next : next.toInt();
+      state.expectedReps = next;
     }
 
     if (plan.primaryExercise?.exerciseId == state.exerciseId ||

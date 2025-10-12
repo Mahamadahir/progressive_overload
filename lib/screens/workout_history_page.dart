@@ -85,7 +85,7 @@ class _WorkoutHistoryPageState extends State<WorkoutHistoryPage> {
         child: ListView.separated(
           physics: const AlwaysScrollableScrollPhysics(),
           itemCount: _workouts.length,
-          separatorBuilder: (_, __) => const Divider(height: 0),
+          separatorBuilder: (context, index) => const Divider(height: 0),
           itemBuilder: (context, index) {
             final p = _workouts[index];
             final v = p.value as WorkoutHealthValue;

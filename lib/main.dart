@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart';           // for TypeAdapter + registerAdapter<T>
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -61,7 +60,8 @@ Future<void> bootstrap() async {
     }
   }
 
-  registerAdapterSafely<CalorieEntry>(CalorieEntryAdapter());\n  registerAdapterSafely<PlanExerciseState>(PlanExerciseStateAdapter());
+  registerAdapterSafely<CalorieEntry>(CalorieEntryAdapter());
+  registerAdapterSafely<PlanExerciseState>(PlanExerciseStateAdapter());
   registerAdapterSafely<WorkoutPlan>(WorkoutPlanAdapter());
   registerAdapterSafely<WorkoutLog>(WorkoutLogAdapter());        // NEW
   registerAdapterSafely<MealTemplate>(MealTemplateAdapter());

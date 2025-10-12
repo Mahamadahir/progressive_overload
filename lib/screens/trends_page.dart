@@ -66,9 +66,9 @@ class _TrendsPageState extends State<TrendsPage> with TickerProviderStateMixin {
         _health.getWeightByDay(start, end), // already batched
       ]);
 
-      final burned = results[0] as Map<String, double>;
-      final steps = results[1] as Map<String, double>;
-      final weight = results[2] as Map<String, double>;
+      final burned = results[0];
+      final steps = results[1];
+      final weight = results[2];
 
       if (!mounted) return;
       setState(() {
@@ -114,9 +114,9 @@ class _TrendsPageState extends State<TrendsPage> with TickerProviderStateMixin {
         _health.getWeightByDay(start, end),
       ]);
 
-      final burnedDaily = results[0] as Map<String, double>;
-      final stepsDaily = results[1] as Map<String, double>;
-      final weightDaily = results[2] as Map<String, double>;
+      final burnedDaily = results[0];
+      final stepsDaily = results[1];
+      final weightDaily = results[2];
 
       if (!mounted) return;
       setState(() {
@@ -278,7 +278,9 @@ class _TrendsPageState extends State<TrendsPage> with TickerProviderStateMixin {
       ..addAll(_intake.keys)
       ..addAll(_steps.keys)
       ..addAll(_weight.keys);
-    for (final k in keys) addDay(k);
+    for (final k in keys) {
+      addDay(k);
+    }
 
     final ordered = months.keys.toList()..sort(); // yyyy-mm sorts by time
     // keep last N
@@ -452,9 +454,6 @@ class _BarChart extends StatelessWidget {
     final values = points.map((e) => e.value).whereType<double>().toList();
     final double maxV =
     values.isEmpty ? 1.0 : values.reduce((a, b) => a > b ? a : b);
-    final double minV =
-    values.isEmpty ? 0.0 : values.reduce((a, b) => a < b ? a : b);
-
     return LayoutBuilder(
       builder: (context, c) {
         // ensure double types everywhere
@@ -493,7 +492,7 @@ class _BarChart extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: v == null
                                 ? Colors.black12
-                                : barColor.withOpacity(0.85),
+                                : barColor.withValues(alpha: 0.85),
                             borderRadius: BorderRadius.circular(6.0),
                           ),
                         ),

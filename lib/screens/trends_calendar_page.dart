@@ -18,7 +18,7 @@ class _Stat extends StatelessWidget {
   final String value;
   final IconData icon;
 
-  const _Stat(this.label, this.value, this.icon, {super.key});
+  const _Stat(this.label, this.value, this.icon);
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +26,7 @@ class _Stat extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: scheme.surfaceVariant.withOpacity(0.6),
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: scheme.outlineVariant),
       ),
@@ -124,8 +124,9 @@ class _TrendsCalendarPageState extends State<TrendsCalendarPage> {
       if (!mounted) return;
       setState(() => _error = e.toString());
     } finally {
-      if (!mounted) return;
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -288,7 +289,7 @@ class _TrendsCalendarPageState extends State<TrendsCalendarPage> {
 
                 return _DayCell(
                   date: date,
-                  background: enabled ? bg : Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.25),
+                  background: enabled ? bg : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.25),
                   stepsOk: stepsOk,
                   enabled: enabled,
                   onTap: enabled ? () => _openDetails(d ?? _DaySummary(date: date)) : null,
@@ -389,7 +390,7 @@ class _TrendsCalendarPageState extends State<TrendsCalendarPage> {
 
 class _Wd extends StatelessWidget {
   final String t;
-  const _Wd(this.t, {super.key});
+  const _Wd(this.t);
   @override
   Widget build(BuildContext context) =>
       Expanded(child: Center(child: Text(t, style: const TextStyle(fontWeight: FontWeight.w600))));
@@ -404,7 +405,6 @@ class _DayCell extends StatelessWidget {
   final bool enabled;
 
   const _DayCell({
-    super.key,
     this.date,
     this.background,
     this.stepsOk = false,
@@ -413,7 +413,7 @@ class _DayCell extends StatelessWidget {
     this.enabled = true,
   });
 
-  const _DayCell.empty({super.key})
+  const _DayCell.empty()
       : date = null, background = null, stepsOk = false, onTap = null, summary = null, enabled = false;
 
   @override
@@ -421,7 +421,7 @@ class _DayCell extends StatelessWidget {
     if (date == null) {
       return DecoratedBox(
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(8),
         ),
       );
@@ -436,7 +436,7 @@ class _DayCell extends StatelessWidget {
     );
 
     return Material(
-      color: background ?? Theme.of(context).colorScheme.surfaceVariant,
+      color: background ?? Theme.of(context).colorScheme.surfaceContainerHighest,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: enabled ? onTap : null,
@@ -454,7 +454,7 @@ class _DayCell extends StatelessWidget {
                     summary!.netKcal.toStringAsFixed(0),
                     style: TextStyle(
                       fontSize: 11,
-                      color: enabled ? Colors.black.withOpacity(0.7) : Colors.grey.withOpacity(0.9),
+                      color: enabled ? Colors.black.withValues(alpha: 0.7) : Colors.grey.withValues(alpha: 0.9),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
