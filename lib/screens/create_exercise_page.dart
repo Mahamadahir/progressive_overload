@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
 import 'package:fitness_app/database/database_provider.dart';
-import 'package:fitness_app/database/app_database.dart';
 import 'package:fitness_app/repositories/drift_repository.dart';
 
 class CreateExercisePage extends StatefulWidget {
   const CreateExercisePage({super.key, this.exerciseId});
 
   final String? exerciseId;
+
+  static const submitButtonKey = Key('create_exercise_submit');
 
   @override
   State<CreateExercisePage> createState() => _CreateExercisePageState();
@@ -29,6 +30,7 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
     5.0: 'Vigorous',
   };
   final Set<String> _selectedGroupIds = <String>{};
+  final Set<String> _expandedGroupIds = <String>{};
 
   bool _saving = false;
   bool _loadingExisting = false;
@@ -82,16 +84,78 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
     super.dispose();
   }
 
-  List<_SelectableGroup> _flattenGroups(
-    List<MuscleGroupNode> nodes, {
+  List<Widget> _buildGroupSelector(
+    List<MuscleGroupNode> nodes,
+    FormFieldState<Set<String>> field, {
     int depth = 0,
   }) {
-    final result = <_SelectableGroup>[];
+    final tiles = <Widget>[];
     for (final node in nodes) {
-      result.add(_SelectableGroup(node.group, depth));
-      result.addAll(_flattenGroups(node.children, depth: depth + 1));
+      final id = node.group.id;
+      final selected = _selectedGroupIds.contains(id);
+      final hasChildren = node.children.isNotEmpty;
+      final expanded = _expandedGroupIds.contains(id);
+      tiles.add(
+        Card(
+          margin: EdgeInsets.only(left: depth * 12.0, bottom: 6),
+          child: Column(
+            children: [
+              ListTile(
+                leading: Checkbox(
+                  value: selected,
+                  onChanged: (value) {
+                    setState(() {
+                      if (value ?? false) {
+                        _selectedGroupIds.add(id);
+                      } else {
+                        _selectedGroupIds.remove(id);
+                      }
+                    });
+                    field.didChange(_selectedGroupIds);
+                  },
+                ),
+                title: Text(node.group.name),
+                onTap: hasChildren
+                    ? () => setState(() {
+                        if (expanded) {
+                          _expandedGroupIds.remove(id);
+                        } else {
+                          _expandedGroupIds.add(id);
+                        }
+                      })
+                    : null,
+                trailing: hasChildren
+                    ? IconButton(
+                        icon: Icon(
+                          expanded ? Icons.expand_less : Icons.expand_more,
+                        ),
+                        onPressed: () => setState(() {
+                          if (expanded) {
+                            _expandedGroupIds.remove(id);
+                          } else {
+                            _expandedGroupIds.add(id);
+                          }
+                        }),
+                      )
+                    : null,
+              ),
+              if (hasChildren && expanded)
+                Padding(
+                  padding: const EdgeInsets.only(left: 12, bottom: 8),
+                  child: Column(
+                    children: _buildGroupSelector(
+                      node.children,
+                      field,
+                      depth: depth + 1,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
     }
-    return result;
+    return tiles;
   }
 
   Future<void> _save() async {
@@ -231,8 +295,7 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
                             ),
                             keyboardType: TextInputType.number,
                             validator: (value) {
-                              final parsed =
-                                  int.tryParse(value?.trim() ?? '');
+                              final parsed = int.tryParse(value?.trim() ?? '');
                               if (parsed == null || parsed <= 0) {
                                 return 'Required';
                               }
@@ -249,15 +312,15 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
                             ),
                             keyboardType: TextInputType.number,
                             validator: (value) {
-                              final parsed =
-                                  int.tryParse(value?.trim() ?? '');
+                              final parsed = int.tryParse(value?.trim() ?? '');
                               if (parsed == null || parsed <= 0) {
                                 return 'Required';
                               }
-                              final min =
-                                  int.tryParse(_minRepsCtrl.text.trim());
+                              final min = int.tryParse(
+                                _minRepsCtrl.text.trim(),
+                              );
                               if (min != null && parsed < min) {
-                                return 'Must be ≥ min reps';
+                                return 'Must be >= min reps';
                               }
                               return null;
                             },
@@ -346,36 +409,9 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
                                     ],
                                   );
                                 }
-                                final flattened = _flattenGroups(groups);
                                 return Column(
-                                  children: flattened.map((item) {
-                                    final selected = _selectedGroupIds.contains(
-                                      item.group.id,
-                                    );
-                                    return CheckboxListTile(
-                                      value: selected,
-                                      onChanged: (checked) {
-                                        setState(() {
-                                          if (checked ?? false) {
-                                            _selectedGroupIds.add(
-                                              item.group.id,
-                                            );
-                                          } else {
-                                            _selectedGroupIds.remove(
-                                              item.group.id,
-                                            );
-                                          }
-                                        });
-                                        field.didChange(_selectedGroupIds);
-                                      },
-                                      controlAffinity:
-                                          ListTileControlAffinity.leading,
-                                      contentPadding: EdgeInsets.only(
-                                        left: item.depth * 16.0,
-                                      ),
-                                      title: Text(item.group.name),
-                                    );
-                                  }).toList(),
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: _buildGroupSelector(groups, field),
                                 );
                               },
                             ),
@@ -395,6 +431,7 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
                     ),
                     const SizedBox(height: 32),
                     FilledButton.icon(
+                      key: CreateExercisePage.submitButtonKey,
                       onPressed: _save,
                       icon: const Icon(Icons.save),
                       label: Text(
@@ -407,11 +444,4 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
             ),
     );
   }
-}
-
-class _SelectableGroup {
-  final MuscleGroup group;
-  final int depth;
-
-  _SelectableGroup(this.group, this.depth);
 }
