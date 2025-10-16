@@ -55,45 +55,83 @@ class _TargetsPageState extends State<TargetsPage> {
     return result;
   }
 
-  List<Widget> _buildGroupTiles(
-    List<MuscleGroupNode> nodes, {
-    int depth = 0,
-  }) {
-    final indent = depth * 12.0;
+  final Set<String> _expandedGroupIds = <String>{};
+
+  List<Widget> _buildGroupTiles(List<MuscleGroupNode> nodes, {int depth = 0}) {
     final tiles = <Widget>[];
     for (final node in nodes) {
+      final group = node.group;
+      final hasChildren = node.children.isNotEmpty;
+      final expanded = _expandedGroupIds.contains(group.id);
       tiles.add(
         Card(
-          margin: EdgeInsets.only(left: indent, bottom: 6),
-          child: ListTile(
-            title: Text(node.group.name),
-            trailing: PopupMenuButton<String>(
-              onSelected: (value) async {
-                switch (value) {
-                  case 'add':
-                    await _showGroupDialog(parentId: node.group.id);
-                    break;
-                  case 'edit':
-                    await _showGroupDialog(group: node.group);
-                    break;
-                  case 'delete':
-                    await _deleteGroup(node.group);
-                    break;
-                }
-              },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'add', child: Text('Add child group')),
-                PopupMenuItem(value: 'edit', child: Text('Rename')),
-                PopupMenuItem(value: 'delete', child: Text('Delete')),
-              ],
-            ),
+          margin: EdgeInsets.only(left: depth * 12.0, bottom: 6),
+          child: Column(
+            children: [
+              ListTile(
+                title: Text(group.name),
+                onTap: hasChildren
+                    ? () => setState(() {
+                        if (expanded) {
+                          _expandedGroupIds.remove(group.id);
+                        } else {
+                          _expandedGroupIds.add(group.id);
+                        }
+                      })
+                    : null,
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    PopupMenuButton<String>(
+                      onSelected: (value) async {
+                        switch (value) {
+                          case 'add':
+                            await _showGroupDialog(parentId: group.id);
+                            break;
+                          case 'edit':
+                            await _showGroupDialog(group: group);
+                            break;
+                          case 'delete':
+                            await _deleteGroup(group);
+                            break;
+                        }
+                      },
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(
+                          value: 'add',
+                          child: Text('Add child group'),
+                        ),
+                        PopupMenuItem(value: 'edit', child: Text('Rename')),
+                        PopupMenuItem(value: 'delete', child: Text('Delete')),
+                      ],
+                    ),
+                    if (hasChildren)
+                      IconButton(
+                        icon: Icon(
+                          expanded ? Icons.expand_less : Icons.expand_more,
+                        ),
+                        onPressed: () => setState(() {
+                          if (expanded) {
+                            _expandedGroupIds.remove(group.id);
+                          } else {
+                            _expandedGroupIds.add(group.id);
+                          }
+                        }),
+                      ),
+                  ],
+                ),
+              ),
+              if (hasChildren && expanded)
+                Padding(
+                  padding: const EdgeInsets.only(left: 12, bottom: 8),
+                  child: Column(
+                    children: _buildGroupTiles(node.children, depth: depth + 1),
+                  ),
+                ),
+            ],
           ),
         ),
       );
-
-      if (node.children.isNotEmpty) {
-        tiles.addAll(_buildGroupTiles(node.children, depth: depth + 1));
-      }
     }
     return tiles;
   }
@@ -505,4 +543,3 @@ class _TargetsPageState extends State<TargetsPage> {
     );
   }
 }
-

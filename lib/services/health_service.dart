@@ -2,14 +2,17 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart'; // for debugPrint
 import 'package:health/health.dart';
-import '../health_singleton.dart'; // ✅ shared singleton
+import '../health_singleton.dart'; // shared singleton
 import 'package:hive/hive.dart';
+import 'health_history_permission.dart';
 
 class HealthService {
   /// Global mutex to serialize *all* permission prompts across the app.
   static Completer<void>? _authMutex;
 
-  static Future<T> _inAuthCriticalSection<T>(Future<T> Function() action) async {
+  static Future<T> _inAuthCriticalSection<T>(
+    Future<T> Function() action,
+  ) async {
     // If a prompt is in progress, wait for it to finish.
     while (_authMutex != null) {
       try {
@@ -38,7 +41,8 @@ class HealthService {
     List<HealthDataAccess>? permissions,
   }) async {
     await health.configure();
-    final perms = permissions ?? types.map((t) => HealthDataAccess.READ).toList();
+    final perms =
+        permissions ?? types.map((t) => HealthDataAccess.READ).toList();
 
     // Fast path: already granted
     final has = await health.hasPermissions(types, permissions: perms) ?? false;
@@ -47,7 +51,8 @@ class HealthService {
     // Slow path: serialize the prompt
     return _inAuthCriticalSection<bool>(() async {
       // Re-check inside the lock in case another call granted while we waited
-      final stillHas = await health.hasPermissions(types, permissions: perms) ?? false;
+      final stillHas =
+          await health.hasPermissions(types, permissions: perms) ?? false;
       if (stillHas) return true;
 
       return await health.requestAuthorization(types, permissions: perms);
@@ -75,7 +80,8 @@ class HealthService {
 
     // Serialized prompt
     return _inAuthCriticalSection<bool>(() async {
-      final stillHas = await health.hasPermissions(types, permissions: perms) ?? false;
+      final stillHas =
+          await health.hasPermissions(types, permissions: perms) ?? false;
       if (stillHas) return true;
 
       return await health.requestAuthorization(types, permissions: perms);
@@ -115,7 +121,9 @@ class HealthService {
 
     final granted = await ensureAuthorized(types: types, permissions: perms);
     if (!granted) {
-      throw Exception('Health permission not granted for TOTAL_CALORIES_BURNED');
+      throw Exception(
+        'Health permission not granted for TOTAL_CALORIES_BURNED',
+      );
     }
 
     double total = 0.0;
@@ -132,7 +140,9 @@ class HealthService {
           total += v.numericValue.toDouble(); // kcal
         }
       }
-      debugPrint('[Calories] TOTAL_CALORIES_BURNED points=${totalPts.length}, sum=$total');
+      debugPrint(
+        '[Calories] TOTAL_CALORIES_BURNED points=${totalPts.length}, sum=$total',
+      );
     } catch (e) {
       debugPrint('[Calories] TOTAL_CALORIES_BURNED error: $e');
     }
@@ -142,16 +152,18 @@ class HealthService {
 
   /// Calories burned per day in [start, end] using TOTAL_CALORIES_BURNED, keyed by YYYY-MM-DD (local).
   Future<Map<String, double>> getCaloriesBurnedByDay(
-      DateTime start,
-      DateTime end,
-      ) async {
+    DateTime start,
+    DateTime end,
+  ) async {
     await health.configure();
 
     const types = [HealthDataType.TOTAL_CALORIES_BURNED];
     const perms = [HealthDataAccess.READ];
 
     final granted = await ensureAuthorized(types: types, permissions: perms);
-    if (!granted) throw Exception('Health permission denied for TOTAL_CALORIES_BURNED');
+    if (!granted) {
+      throw Exception('Health permission denied for TOTAL_CALORIES_BURNED');
+    }
 
     final result = <String, double>{};
 
@@ -177,7 +189,9 @@ class HealthService {
 
         result[_yyyyMmDd(dayStart)] = total;
         if (kDebugMode) {
-          debugPrint('[Calories/day] ${_yyyyMmDd(dayStart)} -> $total kcal (${data.length} pts)');
+          debugPrint(
+            '[Calories/day] ${_yyyyMmDd(dayStart)} -> $total kcal (${data.length} pts)',
+          );
         }
       } catch (e) {
         debugPrint('[Calories/day] ${_yyyyMmDd(dayStart)} error: $e');
@@ -188,11 +202,55 @@ class HealthService {
     return result;
   }
 
+  /// Fetch workout entries between [start] and [end], chunked to avoid 30-day API limits.
+  static Future<List<HealthDataPoint>> getWorkoutsInRange({
+    required DateTime start,
+    required DateTime end,
+    Duration window = const Duration(days: 30),
+  }) async {
+    await health.configure();
+    await HealthHistoryPermission.ensureHistoryPermission();
+    if (start.isAfter(end)) {
+      return const [];
+    }
+
+    final workouts = <HealthDataPoint>[];
+    var windowStart = DateTime(
+      start.year,
+      start.month,
+      start.day,
+      start.hour,
+      start.minute,
+      start.second,
+      start.millisecond,
+      start.microsecond,
+    );
+
+    while (!windowStart.isAfter(end)) {
+      final tentativeEnd = windowStart.add(window);
+      final windowEnd = tentativeEnd.isAfter(end) ? end : tentativeEnd;
+
+      final batch = await health.getHealthDataFromTypes(
+        startTime: windowStart,
+        endTime: windowEnd,
+        types: const [HealthDataType.WORKOUT],
+      );
+      workouts.addAll(batch);
+
+      if (!windowEnd.isBefore(end)) {
+        break;
+      }
+      windowStart = windowEnd.add(const Duration(milliseconds: 1));
+    }
+
+    return workouts;
+  }
+
   /// Steps per day (READ).
   Future<Map<String, double>> getStepsByDay(
-      DateTime start,
-      DateTime end,
-      ) async {
+    DateTime start,
+    DateTime end,
+  ) async {
     await health.configure();
     const types = [HealthDataType.STEPS];
     final ok = await ensureAuthorized(types: types);
@@ -222,13 +280,15 @@ class HealthService {
 
   /// Batched: pull TOTAL_CALORIES_BURNED once, de-duplicate, group by day.
   Future<Map<String, double>> getCaloriesBurnedByDayFast(
-      DateTime start,
-      DateTime end,
-      ) async {
+    DateTime start,
+    DateTime end,
+  ) async {
     await health.configure();
     const types = [HealthDataType.TOTAL_CALORIES_BURNED];
     final ok = await ensureAuthorized(types: types);
-    if (!ok) throw Exception('Health permission denied for TOTAL_CALORIES_BURNED');
+    if (!ok) {
+      throw Exception('Health permission denied for TOTAL_CALORIES_BURNED');
+    }
 
     // inclusive end-of-day
     final startDay = DateTime(start.year, start.month, start.day);
@@ -254,22 +314,24 @@ class HealthService {
       final key = _yyyyMmDd(dp.dateTo); // health already gives local DateTimes
       out.update(
         key,
-            (x) => x + v.numericValue.toDouble(),
+        (x) => x + v.numericValue.toDouble(),
         ifAbsent: () => v.numericValue.toDouble(),
       );
     }
 
     // Optional sanity: clamp truly wild daily sums (provider bugs)
-    out.updateAll((_, kcal) => (kcal.isFinite && kcal >= 0 && kcal < 20000) ? kcal : 0.0);
+    out.updateAll(
+      (_, kcal) => (kcal.isFinite && kcal >= 0 && kcal < 20000) ? kcal : 0.0,
+    );
 
     return out;
   }
 
   /// Batched: pull STEPS once, de-duplicate, group by day.
   Future<Map<String, double>> getStepsByDayFast(
-      DateTime start,
-      DateTime end,
-      ) async {
+    DateTime start,
+    DateTime end,
+  ) async {
     await health.configure();
     const types = [HealthDataType.STEPS];
     final ok = await ensureAuthorized(types: types);
@@ -296,7 +358,7 @@ class HealthService {
       final key = _yyyyMmDd(dp.dateTo);
       out.update(
         key,
-            (x) => x + v.numericValue.toDouble(),
+        (x) => x + v.numericValue.toDouble(),
         ifAbsent: () => v.numericValue.toDouble(),
       );
     }
@@ -305,9 +367,9 @@ class HealthService {
 
   /// Weight per day (READ): last measurement of the day (kg).
   Future<Map<String, double>> getWeightByDay(
-      DateTime start,
-      DateTime end,
-      ) async {
+    DateTime start,
+    DateTime end,
+  ) async {
     await health.configure();
     const types = [HealthDataType.WEIGHT];
     final ok = await ensureAuthorized(types: types);
@@ -377,18 +439,18 @@ class HealthService {
 extension HealthServiceTrends on HealthService {
   /// Steps per day in [start,end] rounded to whole steps.
   Future<Map<String, int>> getStepsByDayRounded(
-      DateTime start,
-      DateTime end,
-      ) async {
+    DateTime start,
+    DateTime end,
+  ) async {
     final raw = await getStepsByDay(start, end);
     return raw.map((key, value) => MapEntry(key, value.round()));
   }
 
   /// Weight (kg) per day (last value that day) in [start,end).
   Future<Map<String, double?>> getWeightByDay(
-      DateTime start,
-      DateTime end,
-      ) async {
+    DateTime start,
+    DateTime end,
+  ) async {
     await health.configure();
 
     const types = [HealthDataType.WEIGHT];
@@ -396,11 +458,17 @@ extension HealthServiceTrends on HealthService {
       types: types,
       permissions: const [HealthDataAccess.READ],
     );
-    if (!ok) return {};
+    if (!ok) {
+      return {};
+    }
 
     final map = <String, double?>{};
     for (int i = 0; i <= end.difference(start).inDays; i++) {
-      final day = DateTime(start.year, start.month, start.day).add(Duration(days: i));
+      final day = DateTime(
+        start.year,
+        start.month,
+        start.day,
+      ).add(Duration(days: i));
       final dayStart = DateTime(day.year, day.month, day.day);
       final dayEnd = dayStart.add(const Duration(days: 1));
 
@@ -416,17 +484,18 @@ extension HealthServiceTrends on HealthService {
       }
       data.sort((a, b) => a.dateTo.compareTo(b.dateTo)); // last of day
       final v = data.last.value;
-      map[HealthService._yyyyMmDd(dayStart)] =
-      (v is NumericHealthValue) ? v.numericValue.toDouble() : null;
+      map[HealthService._yyyyMmDd(dayStart)] = (v is NumericHealthValue)
+          ? v.numericValue.toDouble()
+          : null;
     }
     return map;
   }
 
   /// Workouts per day: count + total energy (kcal) for [start,end).
   Future<Map<String, ({int count, int kcal})>> getWorkoutAggByDay(
-      DateTime start,
-      DateTime end,
-      ) async {
+    DateTime start,
+    DateTime end,
+  ) async {
     await health.configure();
 
     const types = [HealthDataType.WORKOUT];
@@ -434,11 +503,17 @@ extension HealthServiceTrends on HealthService {
       types: types,
       permissions: const [HealthDataAccess.READ],
     );
-    if (!ok) return {};
+    if (!ok) {
+      return {};
+    }
 
     final map = <String, ({int count, int kcal})>{};
     for (int i = 0; i <= end.difference(start).inDays; i++) {
-      final day = DateTime(start.year, start.month, start.day).add(Duration(days: i));
+      final day = DateTime(
+        start.year,
+        start.month,
+        start.day,
+      ).add(Duration(days: i));
       final dayStart = DateTime(day.year, day.month, day.day);
       final dayEnd = dayStart.add(const Duration(days: 1));
 
@@ -461,7 +536,6 @@ extension HealthServiceTrends on HealthService {
     }
     return map;
   }
-
 }
 
 /// ===== Cache-aware, day-granular fetchers (today always refetched) =====
@@ -504,9 +578,9 @@ extension HealthServiceCache on HealthService {
 
   /// Burned kcal per day with caching (non-today days served from cache).
   Future<Map<String, double>> getCaloriesBurnedByDayCached(
-      DateTime start,
-      DateTime end,
-      ) async {
+    DateTime start,
+    DateTime end,
+  ) async {
     await health.configure();
     final out = <String, double>{};
     final missing = <DateTime>[];
@@ -541,9 +615,9 @@ extension HealthServiceCache on HealthService {
 
   /// Steps per day with caching (non-today days served from cache).
   Future<Map<String, int>> getStepsByDayCached(
-      DateTime start,
-      DateTime end,
-      ) async {
+    DateTime start,
+    DateTime end,
+  ) async {
     await health.configure();
     final out = <String, int>{};
     final missing = <DateTime>[];
@@ -578,9 +652,9 @@ extension HealthServiceCache on HealthService {
 
   /// Weight per day with caching (stores NaN for “no data”). Today always refetched.
   Future<Map<String, double?>> getWeightByDayCached(
-      DateTime start,
-      DateTime end,
-      ) async {
+    DateTime start,
+    DateTime end,
+  ) async {
     await health.configure();
     final out = <String, double?>{};
     final missing = <DateTime>[];

@@ -7,6 +7,7 @@ import 'package:health/health.dart';
 
 import 'package:fitness_app/health_singleton.dart'; // uses: final Health health = Health();
 import 'package:fitness_app/services/health_service.dart';
+import 'package:fitness_app/services/health_history_permission.dart';
 
 /// Top-level constants so helpers + UI can both reference them.
 const List<HealthDataType> hcTypes = <HealthDataType>[
@@ -72,7 +73,10 @@ class _HealthConnectDiagnosticsPageState
 
       installed = (sdkStatus == HealthConnectSdkStatus.sdkAvailable);
 
-      final has = await health.hasPermissions(hcTypes, permissions: hcPermissions);
+      final has = await health.hasPermissions(
+        hcTypes,
+        permissions: hcPermissions,
+      );
       hasPerms = has ?? false;
     } catch (e) {
       error = e.toString();
@@ -122,12 +126,14 @@ class _HealthConnectDiagnosticsPageState
       final t = [hcTypes[i]];
       final p = [hcPermissions[i]];
       final ok = await health.hasPermissions(t, permissions: p) ?? false;
-      buf.writeln(' - ${hcTypes[i].name} (${p.first.name}): ${ok ? "OK" : "NO"}');
+      buf.writeln(
+        ' - ${hcTypes[i].name} (${p.first.name}): ${ok ? "OK" : "NO"}',
+      );
     }
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(buf.toString())),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(buf.toString())));
   }
 
   Future<void> _readSmokeTest() async {
@@ -168,9 +174,9 @@ class _HealthConnectDiagnosticsPageState
         title: 'Diagnostics test',
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ok ? 'Write OK' : 'Write failed')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(ok ? 'Write OK' : 'Write failed')));
     } catch (e) {
       setState(() => error = 'writeSmokeTest error: $e');
     }
@@ -181,10 +187,12 @@ class _HealthConnectDiagnosticsPageState
     final s = await health.getHealthConnectSdkStatus();
     if (s == HealthConnectSdkStatus.sdkUnavailable ||
         s == HealthConnectSdkStatus.sdkUnavailableProviderUpdateRequired) {
-      final market =
-      Uri.parse('market://details?id=com.google.android.apps.healthdata');
+      final market = Uri.parse(
+        'market://details?id=com.google.android.apps.healthdata',
+      );
       final web = Uri.parse(
-          'https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata');
+        'https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata',
+      );
       if (!await launchUrl(market, mode: LaunchMode.externalApplication)) {
         await launchUrl(web, mode: LaunchMode.externalApplication);
       }
@@ -200,74 +208,82 @@ class _HealthConnectDiagnosticsPageState
       body: checking
           ? const Center(child: CircularProgressIndicator())
           : Padding(
-        padding: const EdgeInsets.all(16),
-        child: ListView(
-          children: [
-            Text(status, style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: _runChecks,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Re-check'),
-                ),
-                ElevatedButton.icon(
-                  onPressed: installed ? null : _installHealthConnect,
-                  icon: const Icon(Icons.download),
-                  label: const Text('Install / Update Health Connect'),
-                ),
-              ],
+              padding: const EdgeInsets.all(16),
+              child: ListView(
+                children: [
+                  Text(
+                    status,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: _runChecks,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Re-check'),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: installed ? null : _installHealthConnect,
+                        icon: const Icon(Icons.download),
+                        label: const Text('Install / Update Health Connect'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Permissions: ${hasPerms ? "GRANTED" : "NOT GRANTED"}${_authBusy ? " (requesting...)" : ""}',
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      OutlinedButton(
+                        onPressed: _authBusy ? null : _requestAuth,
+                        child: const Text('Request permissions'),
+                      ),
+                      OutlinedButton(
+                        onPressed: _authBusy ? null : _revoke,
+                        child: const Text('Revoke permissions'),
+                      ),
+                      OutlinedButton(
+                        onPressed: _authBusy ? null : _openAppAccess,
+                        child: const Text('Open HC app access'),
+                      ),
+                      OutlinedButton(
+                        onPressed: _debugCheckEachPermission,
+                        child: const Text('Debug: check each permission'),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 32),
+                  const Text('Smoke tests'),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      ElevatedButton(
+                        onPressed: _readSmokeTest,
+                        child: const Text('Read test'),
+                      ),
+                      ElevatedButton(
+                        onPressed: _writeSmokeTest,
+                        child: const Text('Write test'),
+                      ),
+                    ],
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'Error: $error',
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ],
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            Text('Permissions: ${hasPerms ? "GRANTED" : "NOT GRANTED"}${_authBusy ? " (requesting...)" : ""}'),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                OutlinedButton(
-                  onPressed: _authBusy ? null : _requestAuth,
-                  child: const Text('Request permissions'),
-                ),
-                OutlinedButton(
-                  onPressed: _authBusy ? null : _revoke,
-                  child: const Text('Revoke permissions'),
-                ),
-                OutlinedButton(
-                  onPressed: _authBusy ? null : _openAppAccess,
-                  child: const Text('Open HC app access'),
-                ),
-                OutlinedButton(
-                  onPressed: _debugCheckEachPermission,
-                  child: const Text('Debug: check each permission'),
-                ),
-              ],
-            ),
-            const Divider(height: 32),
-            const Text('Smoke tests'),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                ElevatedButton(
-                  onPressed: _readSmokeTest,
-                  child: const Text('Read test'),
-                ),
-                ElevatedButton(
-                  onPressed: _writeSmokeTest,
-                  child: const Text('Write test'),
-                ),
-              ],
-            ),
-            if (error != null) ...[
-              const SizedBox(height: 12),
-              Text('Error: $error', style: const TextStyle(color: Colors.red)),
-            ],
-          ],
-        ),
-      ),
     );
   }
 }
@@ -282,7 +298,10 @@ class HealthConnectDiagnosticsHelper {
     if (!Platform.isAndroid) return false;
     try {
       await health.configure();
-      final has = await health.hasPermissions(hcTypes, permissions: hcPermissions);
+      final has = await health.hasPermissions(
+        hcTypes,
+        permissions: hcPermissions,
+      );
       return has ?? false;
     } catch (_) {
       return false;
@@ -303,14 +322,20 @@ class HealthConnectDiagnosticsHelper {
       }
 
       // Force re-check to ensure plugin isn't returning stale state; then request auth
-      bool? hasAll = await health.hasPermissions(hcTypes, permissions: hcPermissions);
+      bool? hasAll = await health.hasPermissions(
+        hcTypes,
+        permissions: hcPermissions,
+      );
 
       // Some plugin states might be ambiguous for WRITE; force re-request
       hasAll = false;
 
       bool authorized = false;
       if (hasAll != true) {
-        authorized = await health.requestAuthorization(hcTypes, permissions: hcPermissions);
+        authorized = await health.requestAuthorization(
+          hcTypes,
+          permissions: hcPermissions,
+        );
 
         // attempt optional background/history authorizations where available
         try {
@@ -323,6 +348,9 @@ class HealthConnectDiagnosticsHelper {
         authorized = true;
       }
 
+      if (authorized) {
+        await HealthHistoryPermission.ensureHistoryPermission();
+      }
       return authorized;
     } catch (e) {
       // if something goes wrong, return false
@@ -330,11 +358,3 @@ class HealthConnectDiagnosticsHelper {
     }
   }
 }
-
-
-
-
-
-
-
-

@@ -1,9 +1,12 @@
 // lib/screens/trends_calendar_page.dart
+import 'package:fitness_app/health_singleton.dart';
 import 'package:flutter/material.dart';
+import 'package:health/health.dart';
 import 'package:hive/hive.dart';
 
 import '../services/meal_service.dart';
 import '../services/health_service.dart';
+import '../services/health_history_permission.dart';
 import '../models/meal_log.dart';
 
 class TrendsCalendarPage extends StatefulWidget {
@@ -69,7 +72,8 @@ class _TrendsCalendarPageState extends State<TrendsCalendarPage> {
   }
 
   DateTime _monthStart(DateTime m) => DateTime(m.year, m.month, 1);
-  DateTime _monthEndExclusive(DateTime m) => DateTime(m.year, m.month + 1, 1); // exclusive
+  DateTime _monthEndExclusive(DateTime m) =>
+      DateTime(m.year, m.month + 1, 1); // exclusive
 
   Future<void> _loadMonth() async {
     setState(() {
@@ -81,17 +85,35 @@ class _TrendsCalendarPageState extends State<TrendsCalendarPage> {
     final end = _monthEndExclusive(_month);
 
     try {
+      await HealthHistoryPermission.ensureHistoryPermission();
+
+      final granted = await health.hasPermissions(
+        [HealthDataType.DISTANCE_DELTA], 
+        permissions: [HealthDataAccess.READ],
+    );
+
       // Batch all data for the month
       final intake = _meal.intakeByDay(start, end);
       final meals = _meal.mealsByDay(start, end);
 
       // Cached Health fetchers (today always re-fetched)
-      final burned = await _health.getCaloriesBurnedByDayCached(start, end); // Map<String,double>
-      final steps = await _health.getStepsByDayCached(start, end); // Map<String,int>
-      final weight = await _health.getWeightByDayCached(start, end); // Map<String,double?>
+      final burned = await _health.getCaloriesBurnedByDayCached(
+        start,
+        end,
+      ); // Map<String,double>
+      final steps = await _health.getStepsByDayCached(
+        start,
+        end,
+      ); // Map<String,int>
+      final weight = await _health.getWeightByDayCached(
+        start,
+        end,
+      ); // Map<String,double?>
 
       // Workouts aggregation (no cached variant)
-      final wAgg = await HealthServiceTrends(_health).getWorkoutAggByDay(start, end); // Map<String, ({int count, int kcal})>
+      final wAgg = await HealthServiceTrends(
+        _health,
+      ).getWorkoutAggByDay(start, end); // Map<String, ({int count, int kcal})>
 
       // Build per-day summaries
       final days = <String, _DaySummary>{};
@@ -141,16 +163,27 @@ class _TrendsCalendarPageState extends State<TrendsCalendarPage> {
     final meals = _meal.mealsByDay(dayStart, dayEnd)[key] ?? const <MealLog>[];
 
     // Health Connect (fast paths)
-    final burnedMap = await _health.getCaloriesBurnedByDayFast(dayStart, dayEnd);
+    final burnedMap = await _health.getCaloriesBurnedByDayFast(
+      dayStart,
+      dayEnd,
+    );
     final burned = burnedMap[key] ?? 0.0;
 
-    final stepsFast = await _health.getStepsByDayFast(dayStart, dayEnd); // Map<String,double>
+    final stepsFast = await _health.getStepsByDayFast(
+      dayStart,
+      dayEnd,
+    ); // Map<String,double>
     final steps = stepsFast[key]?.round();
 
-    final weightMap = await HealthServiceTrends(_health).getWeightByDay(dayStart, dayEnd); // Map<String,double?>
+    final weightMap = await HealthServiceTrends(
+      _health,
+    ).getWeightByDay(dayStart, dayEnd); // Map<String,double?>
     final weight = weightMap[key];
 
-    final wAgg = await HealthServiceTrends(_health).getWorkoutAggByDay(dayStart, dayEnd); // Map<String,({int count,int kcal})>
+    final wAgg = await HealthServiceTrends(_health).getWorkoutAggByDay(
+      dayStart,
+      dayEnd,
+    ); // Map<String,({int count,int kcal})>
     final workouts = wAgg[key];
 
     return _DaySummary(
@@ -193,7 +226,8 @@ class _TrendsCalendarPageState extends State<TrendsCalendarPage> {
     final daysInMonth = DateTime(_month.year, _month.month + 1, 0).day;
     final totalCells = ((firstWeekday + daysInMonth + 6) ~/ 7) * 7;
 
-    final viewingCurrentMonth = (_month.year == today.year && _month.month == today.month);
+    final viewingCurrentMonth =
+        (_month.year == today.year && _month.month == today.month);
 
     return Scaffold(
       appBar: AppBar(
@@ -213,11 +247,14 @@ class _TrendsCalendarPageState extends State<TrendsCalendarPage> {
             onPressed: _loading
                 ? null
                 : () {
-              setState(() {
-                _month = DateTime(DateTime.now().year, DateTime.now().month);
-              });
-              _loadMonth();
-            },
+                    setState(() {
+                      _month = DateTime(
+                        DateTime.now().year,
+                        DateTime.now().month,
+                      );
+                    });
+                    _loadMonth();
+                  },
             icon: const Icon(Icons.today),
           ),
           IconButton(
@@ -238,68 +275,82 @@ class _TrendsCalendarPageState extends State<TrendsCalendarPage> {
           : _error != null
           ? Center(child: Text('Error: $_error'))
           : Column(
-        children: [
-          // Weekday headers
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Row(
-              children: const [
-                _Wd('Sun'),
-                _Wd('Mon'),
-                _Wd('Tue'),
-                _Wd('Wed'),
-                _Wd('Thu'),
-                _Wd('Fri'),
-                _Wd('Sat'),
+              children: [
+                // Weekday headers
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    children: const [
+                      _Wd('Sun'),
+                      _Wd('Mon'),
+                      _Wd('Tue'),
+                      _Wd('Wed'),
+                      _Wd('Thu'),
+                      _Wd('Fri'),
+                      _Wd('Sat'),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: GridView.builder(
+                    padding: const EdgeInsets.all(8),
+                    itemCount: totalCells,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 7,
+                          crossAxisSpacing: 6,
+                          mainAxisSpacing: 6,
+                        ),
+                    itemBuilder: (_, i) {
+                      final dayNum = i - firstWeekday + 1;
+                      if (dayNum < 1 || dayNum > daysInMonth) {
+                        return const _DayCell.empty();
+                      }
+                      final date = DateTime(_month.year, _month.month, dayNum);
+                      final key = _key(date);
+                      final d = _days[key];
+
+                      // status: green if net target met, red if missed (when a target is set)
+                      final target = _targetKcal;
+                      Color? bg;
+                      if (target > 0 && d != null) {
+                        bg = (d.netKcal >= target)
+                            ? Colors.green.shade100
+                            : Colors.red.shade100;
+                      }
+
+                      // steps badge if goal met
+                      final stepsGoal = _stepsGoal;
+                      final stepsOk =
+                          stepsGoal > 0 && (d?.steps ?? 0) >= stepsGoal;
+
+                      // disable days strictly after today
+                      final isFutureDay = date.isAfter(todayDate);
+                      final enabled = !isFutureDay;
+
+                      return _DayCell(
+                        date: date,
+                        background: enabled
+                            ? bg
+                            : Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest
+                                  .withValues(alpha: 0.25),
+                        stepsOk: stepsOk,
+                        enabled: enabled,
+                        onTap: enabled
+                            ? () => _openDetails(d ?? _DaySummary(date: date))
+                            : null,
+                        summary: d,
+                      );
+                    },
+                  ),
+                ),
               ],
             ),
-          ),
-          Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.all(8),
-              itemCount: totalCells,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 7,
-                crossAxisSpacing: 6,
-                mainAxisSpacing: 6,
-              ),
-              itemBuilder: (_, i) {
-                final dayNum = i - firstWeekday + 1;
-                if (dayNum < 1 || dayNum > daysInMonth) {
-                  return const _DayCell.empty();
-                }
-                final date = DateTime(_month.year, _month.month, dayNum);
-                final key = _key(date);
-                final d = _days[key];
-
-                // status: green if net target met, red if missed (when a target is set)
-                final target = _targetKcal;
-                Color? bg;
-                if (target > 0 && d != null) {
-                  bg = (d.netKcal >= target) ? Colors.green.shade100 : Colors.red.shade100;
-                }
-
-                // steps badge if goal met
-                final stepsGoal = _stepsGoal;
-                final stepsOk = stepsGoal > 0 && (d?.steps ?? 0) >= stepsGoal;
-
-                // disable days strictly after today
-                final isFutureDay = date.isAfter(todayDate);
-                final enabled = !isFutureDay;
-
-                return _DayCell(
-                  date: date,
-                  background: enabled ? bg : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.25),
-                  stepsOk: stepsOk,
-                  enabled: enabled,
-                  onTap: enabled ? () => _openDetails(d ?? _DaySummary(date: date)) : null,
-                  summary: d,
-                );
-              },
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -329,14 +380,19 @@ class _TrendsCalendarPageState extends State<TrendsCalendarPage> {
                     children: [
                       Text(
                         "${sheetSummary.date.year}-${sheetSummary.date.month.toString().padLeft(2, '0')}-${sheetSummary.date.day.toString().padLeft(2, '0')}",
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
                       ),
                       const Spacer(),
                       IconButton(
                         tooltip: 'Reload this day',
                         icon: const Icon(Icons.refresh),
                         onPressed: () async {
-                          final fresh = await _fetchDaySummary(sheetSummary.date);
+                          final fresh = await _fetchDaySummary(
+                            sheetSummary.date,
+                          );
                           if (!mounted) return;
                           // Update calendar backing map
                           setState(() {
@@ -355,28 +411,65 @@ class _TrendsCalendarPageState extends State<TrendsCalendarPage> {
                     runSpacing: 8,
                     spacing: 8,
                     children: [
-                      _Stat('Kcal in', sheetSummary.kcalIn.toStringAsFixed(0), Icons.restaurant),
-                      _Stat('Kcal out', sheetSummary.kcalOut.toStringAsFixed(0), Icons.local_fire_department),
-                      _Stat('Net', sheetSummary.netKcal.toStringAsFixed(0), Icons.balance),
-                      _Stat('Steps', (sheetSummary.steps ?? 0).toString(), Icons.directions_walk),
-                      _Stat('Weight', sheetSummary.weightKg == null ? '—' : "${sheetSummary.weightKg!.toStringAsFixed(1)} kg", Icons.monitor_weight),
-                      _Stat('Workouts', sheetSummary.workoutsCount.toString(), Icons.fitness_center),
+                      _Stat(
+                        'Kcal in',
+                        sheetSummary.kcalIn.toStringAsFixed(0),
+                        Icons.restaurant,
+                      ),
+                      _Stat(
+                        'Kcal out',
+                        sheetSummary.kcalOut.toStringAsFixed(0),
+                        Icons.local_fire_department,
+                      ),
+                      _Stat(
+                        'Net',
+                        sheetSummary.netKcal.toStringAsFixed(0),
+                        Icons.balance,
+                      ),
+                      _Stat(
+                        'Steps',
+                        (sheetSummary.steps ?? 0).toString(),
+                        Icons.directions_walk,
+                      ),
+                      _Stat(
+                        'Weight',
+                        sheetSummary.weightKg == null
+                            ? '—'
+                            : "${sheetSummary.weightKg!.toStringAsFixed(1)} kg",
+                        Icons.monitor_weight,
+                      ),
+                      _Stat(
+                        'Workouts',
+                        sheetSummary.workoutsCount.toString(),
+                        Icons.fitness_center,
+                      ),
                       if (sheetSummary.workoutsKcal > 0)
-                        _Stat('Workout kcal', sheetSummary.workoutsKcal.toString(), Icons.local_fire_department),
+                        _Stat(
+                          'Workout kcal',
+                          sheetSummary.workoutsKcal.toString(),
+                          Icons.local_fire_department,
+                        ),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  const Text('Meals', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const Text(
+                    'Meals',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                   const SizedBox(height: 8),
                   if (meals.isEmpty)
                     const Text('No meals logged.')
                   else
-                    ...meals.map((m) => ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.restaurant_menu),
-                      title: Text(m.name),
-                      subtitle: Text('${m.massGrams.toStringAsFixed(0)} g • ${m.kcal.toStringAsFixed(0)} kcal'),
-                    )),
+                    ...meals.map(
+                      (m) => ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.restaurant_menu),
+                        title: Text(m.name),
+                        subtitle: Text(
+                          '${m.massGrams.toStringAsFixed(0)} g • ${m.kcal.toStringAsFixed(0)} kcal',
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 16),
                 ],
               );
@@ -392,8 +485,11 @@ class _Wd extends StatelessWidget {
   final String t;
   const _Wd(this.t);
   @override
-  Widget build(BuildContext context) =>
-      Expanded(child: Center(child: Text(t, style: const TextStyle(fontWeight: FontWeight.w600))));
+  Widget build(BuildContext context) => Expanded(
+    child: Center(
+      child: Text(t, style: const TextStyle(fontWeight: FontWeight.w600)),
+    ),
+  );
 }
 
 class _DayCell extends StatelessWidget {
@@ -414,14 +510,21 @@ class _DayCell extends StatelessWidget {
   });
 
   const _DayCell.empty()
-      : date = null, background = null, stepsOk = false, onTap = null, summary = null, enabled = false;
+    : date = null,
+      background = null,
+      stepsOk = false,
+      onTap = null,
+      summary = null,
+      enabled = false;
 
   @override
   Widget build(BuildContext context) {
     if (date == null) {
       return DecoratedBox(
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+          color: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(8),
         ),
       );
@@ -436,7 +539,8 @@ class _DayCell extends StatelessWidget {
     );
 
     return Material(
-      color: background ?? Theme.of(context).colorScheme.surfaceContainerHighest,
+      color:
+          background ?? Theme.of(context).colorScheme.surfaceContainerHighest,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: enabled ? onTap : null,
@@ -454,7 +558,9 @@ class _DayCell extends StatelessWidget {
                     summary!.netKcal.toStringAsFixed(0),
                     style: TextStyle(
                       fontSize: 11,
-                      color: enabled ? Colors.black.withValues(alpha: 0.7) : Colors.grey.withValues(alpha: 0.9),
+                      color: enabled
+                          ? Colors.black.withValues(alpha: 0.7)
+                          : Colors.grey.withValues(alpha: 0.9),
                       fontWeight: FontWeight.w600,
                     ),
                   ),

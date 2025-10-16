@@ -39,6 +39,7 @@ android {
 dependencies {
     // ✅ Desugared JDK APIs (java.time, etc.)
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
 
     // NOTE: Do NOT pin connect-client here to a version that conflicts with plugin.
     // Pinning is controlled project-wide in android/build.gradle.kts via resolutionStrategy.force(...).

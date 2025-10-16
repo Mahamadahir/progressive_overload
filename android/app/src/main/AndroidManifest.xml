@@ -13,42 +13,41 @@
 
     <!-- ===== Health Connect (AndroidX Health permissions) ===== -->
 
-    <!-- History reads (keep if you call requestHealthDataHistoryAuthorization) -->
+    <!-- History reads (>30 days) -->
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_HISTORY" />
 
     <!-- Calories -->
     <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED" />
     <uses-permission android:name="android.permission.health.WRITE_TOTAL_CALORIES_BURNED" />
-    <!-- Not used:
-         <uses-permission android:name="android.permission.health.WRITE_ACTIVE_CALORIES_BURNED" /> -->
 
     <!-- Weight -->
     <uses-permission android:name="android.permission.health.READ_WEIGHT" />
-    <!-- Only if you actually write weight:
-         <uses-permission android:name="android.permission.health.WRITE_WEIGHT" /> -->
+    <!-- <uses-permission android:name="android.permission.health.WRITE_WEIGHT" /> -->
 
     <!-- Exercise sessions (WORKOUT read/write) -->
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />
     <uses-permission android:name="android.permission.health.WRITE_EXERCISE" />
 
+    <!-- Steps -->
     <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <!-- <uses-permission android:name="android.permission.health.WRITE_STEPS" /> -->
 
     <!-- Optional extras (uncomment only if used) -->
-    <!--
-
-    <uses-permission android:name="android.permission.health.WRITE_STEPS" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />
+    <!--
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     -->
+
+    <uses-permission android:name="android.permission.health.READ_DISTANCE" />
+
 
     <!-- ===== Visibility queries (DeviceApps / HC detect / rationale intent) ===== -->
     <queries>
         <!-- Detect Health Connect app -->
         <package android:name="com.google.android.apps.healthdata" />
 
-        <!-- Optional: Health Connect rationale deep link -->
+        <!-- (Optional) Declare we may query for the HC rationale intent action -->
         <intent>
             <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
         </intent>
@@ -74,21 +73,29 @@
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme" />
 
-            <!-- Launch -->
+            <!-- Launcher -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- TODO: Add intent filter to handle permission rationale intent -->
-
-            <!-- Permission handling for Android 14 and later -->
+            <!-- Android 13 and lower: show Health Connect permission rationale -->
             <intent-filter>
-                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE"/>
-                <category android:name="android.intent.category.HEALTH_PERMISSIONS"/>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
             </intent-filter>
-
         </activity>
+
+        <!-- Android 14+ (API 34+): permission UI alias (required to display the HC permission UI) -->
+        <activity-alias
+            android:name="ViewPermissionUsageActivity"
+            android:exported="true"
+            android:targetActivity="com.mahamad.fitness.progressive_overload.MainActivity"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
 
         <meta-data
             android:name="flutterEmbedding"

@@ -58,6 +58,62 @@ class _SessionPageState extends State<SessionPage> {
     return plan.exercises.isEmpty ? null : plan.exercises.first;
   }
 
+  Future<void> _syncPlanExercisesWithTargets() async {
+    if (plan.targetMuscleGroupIds.isEmpty) return;
+    final tree = await driftRepository.getMuscleGroupsTree();
+    final descendants = <String, Set<String>>{};
+
+    Set<String> visit(MuscleGroupNode node) {
+      final ids = <String>{node.group.id};
+      for (final child in node.children) {
+        ids.addAll(visit(child));
+      }
+      descendants[node.group.id] = ids;
+      return ids;
+    }
+
+    for (final node in tree) {
+      visit(node);
+    }
+
+    final expandedGroupIds = plan.targetMuscleGroupIds
+        .expand((id) => descendants[id] ?? <String>{id})
+        .toSet();
+    if (expandedGroupIds.isEmpty) return;
+
+    final details = await driftRepository.getExercises(
+      groupIds: expandedGroupIds.toList(),
+    );
+    final existing = {for (final state in plan.exercises) state.exerciseId};
+    var modified = false;
+
+    for (final detail in details) {
+      final exercise = detail.exercise;
+      if (existing.contains(exercise.id)) continue;
+      plan.exercises.add(
+        PlanExerciseState(
+          exerciseId: exercise.id,
+          startWeightKg: exercise.startWeightKg,
+          currentWeightKg: exercise.startWeightKg,
+          minReps: exercise.minReps,
+          maxReps: exercise.maxReps,
+          expectedReps: exercise.minReps,
+          incrementKg: exercise.incrementKg,
+          mets: exercise.defaultMets,
+        ),
+      );
+      modified = true;
+    }
+
+    if (modified) {
+      await plan.save();
+      _ensureActiveExercise();
+      if (mounted) {
+        setState(() {});
+      }
+    }
+  }
+
   void _ensureActiveExercise() {
     if (plan.exercises.isEmpty) {
       _activeExerciseId = null;
@@ -76,6 +132,7 @@ class _SessionPageState extends State<SessionPage> {
     super.initState();
     plan = Hive.box<WorkoutPlan>('plans').get(widget.planId)!;
     _ensureActiveExercise();
+    Future.microtask(_syncPlanExercisesWithTargets);
     _checkPermissions(); // passive check (no prompts)
   }
 
@@ -124,10 +181,8 @@ class _SessionPageState extends State<SessionPage> {
         final fallbackState = plan.defaultExerciseState;
         final effectiveState = activeState ?? fallbackState;
         final defaultMets = effectiveState?.mets ?? 3.0;
-        final expectedWeight =
-            effectiveState?.currentWeightKg ?? 0;
-        final expectedReps =
-            effectiveState?.expectedReps ?? 0;
+        final expectedWeight = effectiveState?.currentWeightKg ?? 0;
+        final expectedReps = effectiveState?.expectedReps ?? 0;
         final activeName = activeState == null
             ? null
             : details[activeState.exerciseId]?.exercise.name;
@@ -194,9 +249,9 @@ class _SessionPageState extends State<SessionPage> {
                           margin: const EdgeInsets.only(bottom: 16),
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .surfaceContainerHighest,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Text(
@@ -216,7 +271,9 @@ class _SessionPageState extends State<SessionPage> {
                                   (state) => DropdownMenuItem<String>(
                                     value: state.exerciseId,
                                     child: Text(
-                                      details[state.exerciseId]?.exercise.name ??
+                                      details[state.exerciseId]
+                                              ?.exercise
+                                              .name ??
                                           'Exercise',
                                     ),
                                   ),
@@ -272,8 +329,7 @@ class _SessionPageState extends State<SessionPage> {
                                       .map(
                                         (name) => Chip(
                                           label: Text(name),
-                                          visualDensity:
-                                              VisualDensity.compact,
+                                          visualDensity: VisualDensity.compact,
                                         ),
                                       )
                                       .toList(),
@@ -293,8 +349,10 @@ class _SessionPageState extends State<SessionPage> {
                         ),
                       const Text(
                         'Expected',
-                        style:
-                            TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Text('Weight: ${expectedWeight.toStringAsFixed(1)} kg'),
@@ -307,8 +365,10 @@ class _SessionPageState extends State<SessionPage> {
                       const SizedBox(height: 16),
                       const Text(
                         'Achieved',
-                        style:
-                            TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       TextField(
@@ -327,7 +387,14 @@ class _SessionPageState extends State<SessionPage> {
                       SwitchListTile(
                         title: const Text('Did you meet your target?'),
                         value: _targetMet,
-                        onChanged: (v) => setState(() => _targetMet = v),
+                        onChanged: (v) {
+                          setState(() {
+                            _targetMet = v;
+                            if (v) {
+                              _achievedRepsCtrl.text = expectedReps.toString();
+                            }
+                          });
+                        },
                       ),
                       const SizedBox(height: 16),
                       const Text('Intensity override (optional)'),
@@ -357,8 +424,7 @@ class _SessionPageState extends State<SessionPage> {
                                     int.tryParse(_achievedRepsCtrl.text) ?? 0;
                                 if (sets <= 0 || reps <= 0) {
                                   setState(
-                                    () => _result =
-                                        'Enter valid sets/reps.',
+                                    () => _result = 'Enter valid sets/reps.',
                                   );
                                   return;
                                 }
@@ -375,14 +441,15 @@ class _SessionPageState extends State<SessionPage> {
                                     overrideMets: _overrideMets,
                                     exerciseId: activeState.exerciseId,
                                   );
-                                  final refreshedPlan =
-                                      Hive.box<WorkoutPlan>('plans')
-                                          .get(plan.id)!;
+                                  final refreshedPlan = Hive.box<WorkoutPlan>(
+                                    'plans',
+                                  ).get(plan.id)!;
                                   setState(() {
                                     plan = refreshedPlan;
                                     _ensureActiveExercise();
-                                    final updatedState =
-                                        _stateFor(activeState.exerciseId);
+                                    final updatedState = _stateFor(
+                                      activeState.exerciseId,
+                                    );
                                     final fallbackState =
                                         plan.defaultExerciseState;
                                     final nextWeight =
@@ -450,8 +517,3 @@ class _SessionPageState extends State<SessionPage> {
     );
   }
 }
-
-
-
-
-

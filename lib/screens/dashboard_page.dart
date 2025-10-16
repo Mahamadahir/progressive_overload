@@ -3,6 +3,7 @@ import 'package:health/health.dart';
 
 import 'package:fitness_app/services/workout_service.dart';
 import 'package:fitness_app/services/health_service.dart';
+import 'package:fitness_app/theme_controller.dart';
 
 // Screens
 import 'create_workout_page.dart';
@@ -31,6 +32,9 @@ class _DashboardPageState extends State<DashboardPage> {
   void initState() {
     super.initState();
     _checkPermissions();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await service.checkAndNotifyMuscleInactivity();
+    });
   }
 
   Future<void> _checkPermissions() async {
@@ -61,6 +65,19 @@ class _DashboardPageState extends State<DashboardPage> {
       appBar: AppBar(
         title: const Text('Fitness Tracker'),
         actions: [
+          AnimatedBuilder(
+            animation: themeController,
+            builder: (context, _) {
+              final isDark = themeController.isDarkModeEnabled;
+              return IconButton(
+                tooltip: isDark
+                    ? 'Switch to light mode'
+                    : 'Switch to dark mode',
+                onPressed: themeController.toggle,
+                icon: Icon(isDark ? Icons.dark_mode : Icons.light_mode),
+              );
+            },
+          ),
           IconButton(
             tooltip: 'All Workouts',
             onPressed: () async {
@@ -78,9 +95,9 @@ class _DashboardPageState extends State<DashboardPage> {
             icon: const Icon(Icons.refresh),
           ),
           IconButton(
-            tooltip: 'Settings',
+            tooltip: 'Targets',
             onPressed: () => Navigator.pushNamed(context, '/settings'),
-            icon: const Icon(Icons.settings),
+            icon: const Icon(Icons.flag),
           ),
           IconButton(
             tooltip: 'Diagnostics',
@@ -203,11 +220,31 @@ class _DashboardPageState extends State<DashboardPage> {
                         ),
                       ),
                       _QuickLink(
-                        icon: Icons.settings,
-                        label: 'Settings',
+                        icon: Icons.flag,
+                        label: 'Targets',
                         onTap: () => Navigator.pushNamed(context, '/settings'),
                       ),
                     ],
+                  ),
+                ),
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: AnimatedBuilder(
+                    animation: themeController,
+                    builder: (context, _) {
+                      final isDark = themeController.isDarkModeEnabled;
+                      return Card(
+                        child: SwitchListTile(
+                          title: const Text('Dark mode'),
+                          secondary: Icon(
+                            isDark ? Icons.dark_mode : Icons.light_mode,
+                          ),
+                          value: isDark,
+                          onChanged: themeController.setDarkMode,
+                        ),
+                      );
+                    },
                   ),
                 ),
 
@@ -228,18 +265,16 @@ class _DashboardPageState extends State<DashboardPage> {
                               margin: const EdgeInsets.only(bottom: 12),
                               child: ListTile(
                                 title: Text(p.name),
-                                subtitle: Text(
-                                  () {
-                                    final defaultState = p.defaultExerciseState;
-                                    if (defaultState == null) {
-                                      return 'No exercises configured yet';
-                                    }
-                                    return 'Next up: '
-                                        '${defaultState.currentWeightKg.toStringAsFixed(1)} kg x '
-                                        '${defaultState.expectedReps} reps - '
-                                        '${defaultState.mets.toStringAsFixed(1)} METs';
-                                  }(),
-                                ),
+                                subtitle: Text(() {
+                                  final defaultState = p.defaultExerciseState;
+                                  if (defaultState == null) {
+                                    return 'No exercises configured yet';
+                                  }
+                                  return 'Next up: '
+                                      '${defaultState.currentWeightKg.toStringAsFixed(1)} kg x '
+                                      '${defaultState.expectedReps} reps - '
+                                      '${defaultState.mets.toStringAsFixed(1)} METs';
+                                }()),
                                 trailing: const Icon(Icons.chevron_right),
                                 onTap: () async {
                                   await Navigator.push(

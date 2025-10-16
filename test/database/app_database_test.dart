@@ -23,7 +23,17 @@ void main() {
     await openDb();
     final groups = await db.muscleGroupDao.getAll();
     final names = groups.map((g) => g.name).toList();
-    expect(names, containsAll(['Upper Body', 'Lower Body']));
+    expect(groups.length, 23);
+    expect(
+      names,
+      containsAll([
+        'Upper Body',
+        'Lower Body',
+        'Arms',
+        'Hamstrings',
+        'Lower back',
+      ]),
+    );
   });
 
   test('exercise DAO stores muscle group relations', () async {
@@ -40,15 +50,12 @@ void main() {
 
     await db.exerciseDao.replaceExerciseGroups(
       exerciseId: exerciseId,
-      groupIds: const [
-        '00000000-0000-4000-8000-000000000001',
-        '00000000-0000-4000-8000-000000000002',
-      ],
+      groupIds: const ['upper-body', 'lower-body'],
     );
 
     final groupIds = await db.exerciseDao.groupIdsForExercise(exerciseId);
-    expect(groupIds, contains('00000000-0000-4000-8000-000000000001'));
-    expect(groupIds, contains('00000000-0000-4000-8000-000000000002'));
+    expect(groupIds, contains('upper-body'));
+    expect(groupIds, contains('lower-body'));
   });
 
   test('workout DAO logs are persisted with cascades', () async {

@@ -2,11 +2,14 @@ import 'dart:developer' as developer;
 
 import 'package:fitness_app/database/database_provider.dart';
 import 'package:fitness_app/models/workout_log.dart' as wl show WorkoutLog;
-import 'package:fitness_app/models/workout_plan.dart' as wp
+import 'package:fitness_app/models/workout_plan.dart'
+    as wp
     show PlanExerciseState, WorkoutPlan;
 import 'package:hive/hive.dart';
 
+import 'package:fitness_app/repositories/drift_repository.dart';
 import 'health_service.dart'; // getLatestWeight(), writeStrengthWorkout()
+import 'notification_service.dart';
 
 class WorkoutService {
   // Explicit generic types + aliases
@@ -15,14 +18,125 @@ class WorkoutService {
 
   List<wp.WorkoutPlan> getPlans() => _planBox.values.toList();
 
+  Future<void> checkAndNotifyMuscleInactivity({
+    Duration threshold = const Duration(days: 4),
+  }) async {
+    final plans = getPlans();
+    if (plans.isEmpty) return;
+
+    final targetGroups = <String>{};
+    final groupPlanCreatedAt = <String, DateTime>{};
+    for (final plan in plans) {
+      for (final groupId in plan.targetMuscleGroupIds) {
+        targetGroups.add(groupId);
+        final existing = groupPlanCreatedAt[groupId];
+        if (existing == null || plan.createdAt.isBefore(existing)) {
+          groupPlanCreatedAt[groupId] = plan.createdAt;
+        }
+      }
+    }
+    if (targetGroups.isEmpty) return;
+
+    final tree = await driftRepository.getMuscleGroupsTree();
+    final descendantsByGroup = <String, Set<String>>{};
+    final nameByGroup = <String, String>{};
+
+    Set<String> visit(MuscleGroupNode node) {
+      nameByGroup[node.group.id] = node.group.name;
+      final descendants = <String>{node.group.id};
+      for (final child in node.children) {
+        descendants.addAll(visit(child));
+      }
+      descendantsByGroup[node.group.id] = descendants;
+      return descendants;
+    }
+
+    for (final node in tree) {
+      visit(node);
+    }
+
+    final scopeGroupIds = targetGroups
+        .expand(
+          (id) =>
+              descendantsByGroup[id] ??
+              (nameByGroup.containsKey(id) ? <String>{id} : const <String>{}),
+        )
+        .toSet()
+        .toList();
+
+    final lastPerf = await driftRepository.lastPerformedAtByMuscleGroup(
+      groupIds: scopeGroupIds.isEmpty ? null : scopeGroupIds,
+    );
+
+    final settings = Hive.box('settings');
+    final stored = Map<String, dynamic>.from(
+      settings.get('inactivity_notified_at', defaultValue: const {}) as Map,
+    );
+
+    final now = DateTime.now();
+    var updated = false;
+
+    for (final groupId in targetGroups) {
+      final allIds = descendantsByGroup[groupId] ?? <String>{groupId};
+      DateTime? latest;
+      for (final id in allIds) {
+        final candidate = lastPerf[id];
+        if (candidate != null &&
+            (latest == null || candidate.isAfter(latest))) {
+          latest = candidate;
+        }
+      }
+
+      final fallback = groupPlanCreatedAt[groupId];
+      if (fallback == null) {
+        continue;
+      }
+      final reference = latest ?? fallback;
+      final duration = now.difference(reference);
+      if (duration < threshold) {
+        continue;
+      }
+
+      final lastNotifiedMillis = stored[groupId] as int?;
+      final lastNotified = lastNotifiedMillis == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(lastNotifiedMillis);
+      final shouldNotify =
+          lastNotified == null ||
+          now.difference(lastNotified) >= threshold ||
+          (latest != null && lastNotified.isBefore(latest));
+      if (!shouldNotify) {
+        continue;
+      }
+
+      final name = nameByGroup[groupId] ?? 'a target muscle';
+      final notificationId = 5000 + (groupId.hashCode & 0x7fffffff);
+      await NotificationService.showNow(
+        id: notificationId,
+        title: 'Time to train $name',
+        body:
+            "It's been ${duration.inDays} day${duration.inDays == 1 ? '' : 's'} since your last $name session. Let's schedule one!",
+      );
+      stored[groupId] = now.millisecondsSinceEpoch;
+      updated = true;
+    }
+
+    if (updated) {
+      await settings.put('inactivity_notified_at', stored);
+    }
+  }
+
   Future<void> createPlan({
     required String name,
     required List<String> exerciseIds,
     List<String>? targetMuscleGroupIds,
     String? defaultExerciseId,
   }) async {
-    final uniqueExerciseIds =
-        exerciseIds.map((id) => id.trim()).where((id) => id.isNotEmpty).toSet().toList();
+    final uniqueExerciseIds = exerciseIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
     if (uniqueExerciseIds.isEmpty) {
       throw ArgumentError('exerciseIds cannot be empty');
     }
@@ -58,7 +172,9 @@ class WorkoutService {
 
     final primaryState = states.first;
     final sanitizedGroups =
-        (targetMuscleGroupIds == null ? groupsFromExercises : targetMuscleGroupIds.toSet())
+        (targetMuscleGroupIds == null
+                ? groupsFromExercises
+                : targetMuscleGroupIds.toSet())
             .map((id) => id.trim())
             .where((id) => id.isNotEmpty)
             .toSet()
@@ -100,8 +216,11 @@ class WorkoutService {
     List<String>? targetMuscleGroupIds,
     String? defaultExerciseId,
   }) async {
-    final uniqueExerciseIds =
-        exerciseIds.map((id) => id.trim()).where((id) => id.isNotEmpty).toSet().toList();
+    final uniqueExerciseIds = exerciseIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
     if (uniqueExerciseIds.isEmpty) {
       throw ArgumentError('exerciseIds cannot be empty');
     }
@@ -149,16 +268,19 @@ class WorkoutService {
     }
 
     final sanitizedGroups =
-        (targetMuscleGroupIds == null ? groupsFromExercises : targetMuscleGroupIds.toSet())
+        (targetMuscleGroupIds == null
+                ? groupsFromExercises
+                : targetMuscleGroupIds.toSet())
             .map((id) => id.trim())
             .where((id) => id.isNotEmpty)
             .toSet()
             .toList();
 
     final resolvedDefault =
-        (defaultExerciseId != null && uniqueExerciseIds.contains(defaultExerciseId))
-            ? defaultExerciseId
-            : uniqueExerciseIds.first;
+        (defaultExerciseId != null &&
+            uniqueExerciseIds.contains(defaultExerciseId))
+        ? defaultExerciseId
+        : uniqueExerciseIds.first;
 
     plan
       ..name = name
@@ -177,6 +299,7 @@ class WorkoutService {
     await plan.save();
     await driftRepository.ensureWorkoutForPlan(plan.id, name: plan.name);
   }
+
   Future<void> deletePlan(String id) async {
     try {
       await driftRepository.deleteWorkoutForPlan(id);
@@ -214,7 +337,9 @@ class WorkoutService {
     String? exerciseId,
   }) async {
     final resolvedExerciseId =
-        exerciseId ?? plan.defaultExerciseId ?? plan.primaryExercise?.exerciseId;
+        exerciseId ??
+        plan.defaultExerciseId ??
+        plan.primaryExercise?.exerciseId;
     if (resolvedExerciseId == null) {
       throw ArgumentError('No exercise available for logging on this plan.');
     }
@@ -316,4 +441,3 @@ class WorkoutService {
           .toList()
         ..sort((a, b) => b.date.compareTo(a.date));
 }
-

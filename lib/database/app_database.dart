@@ -145,27 +145,44 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> _seedInitialMuscleGroups() async {
     const seedGroups = [
-      _PresetGroup(
-        id: '00000000-0000-4000-8000-000000000001',
-        name: 'Upper Body',
-      ),
-      _PresetGroup(
-        id: '00000000-0000-4000-8000-000000000002',
-        name: 'Lower Body',
-      ),
+      _PresetGroup(id: 'upper-body', name: 'Upper Body'),
+      _PresetGroup(id: 'arms', name: 'Arms', parentId: 'upper-body'),
+      _PresetGroup(id: 'biceps', name: 'Biceps', parentId: 'arms'),
+      _PresetGroup(id: 'triceps', name: 'Triceps', parentId: 'arms'),
+      _PresetGroup(id: 'forearms', name: 'Forearms', parentId: 'arms'),
+      _PresetGroup(id: 'shoulders', name: 'Shoulders', parentId: 'upper-body'),
+      _PresetGroup(id: 'front-delts', name: 'Front delts', parentId: 'shoulders'),
+      _PresetGroup(id: 'side-delts', name: 'Side delts', parentId: 'shoulders'),
+      _PresetGroup(id: 'rear-delts', name: 'Rear delts', parentId: 'shoulders'),
+      _PresetGroup(id: 'chest', name: 'Chest', parentId: 'upper-body'),
+      _PresetGroup(id: 'upper-chest', name: 'Upper chest', parentId: 'chest'),
+      _PresetGroup(id: 'lower-chest', name: 'Lower chest', parentId: 'chest'),
+      _PresetGroup(id: 'back', name: 'Back', parentId: 'upper-body'),
+      _PresetGroup(id: 'lats', name: 'Lats', parentId: 'back'),
+      _PresetGroup(id: 'upper-back', name: 'Upper back', parentId: 'back'),
+      _PresetGroup(id: 'lower-back', name: 'Lower back', parentId: 'back'),
+      _PresetGroup(id: 'lower-body', name: 'Lower Body'),
+      _PresetGroup(id: 'glutes', name: 'Glutes', parentId: 'lower-body'),
+      _PresetGroup(id: 'quads', name: 'Quads', parentId: 'lower-body'),
+      _PresetGroup(id: 'hamstrings', name: 'Hamstrings', parentId: 'lower-body'),
+      _PresetGroup(id: 'calves', name: 'Calves', parentId: 'lower-body'),
+      _PresetGroup(id: 'inner-thighs', name: 'Inner thighs', parentId: 'lower-body'),
+      _PresetGroup(id: 'outer-thighs', name: 'Outer thighs', parentId: 'lower-body'),
     ];
 
     for (final preset in seedGroups) {
       final exists = await (select(
         muscleGroups,
-      )..where((tbl) => tbl.name.equals(preset.name))).getSingleOrNull();
+      )..where((tbl) => tbl.id.equals(preset.id))).getSingleOrNull();
 
       if (exists == null) {
         await into(muscleGroups).insert(
           MuscleGroupsCompanion.insert(
             id: preset.id,
             name: preset.name,
-            parentId: const Value.absent(),
+            parentId: preset.parentId == null
+                ? const Value.absent()
+                : Value(preset.parentId!),
           ),
         );
       }
@@ -176,8 +193,9 @@ class AppDatabase extends _$AppDatabase {
 class _PresetGroup {
   final String id;
   final String name;
+  final String? parentId;
 
-  const _PresetGroup({required this.id, required this.name});
+  const _PresetGroup({required this.id, required this.name, this.parentId});
 }
 
 @DriftAccessor(tables: [MuscleGroups])

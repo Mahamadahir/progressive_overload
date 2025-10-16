@@ -162,7 +162,9 @@ class DriftRepository {
     }
 
     if (minReps <= 0 || maxReps <= 0) {
-      throw RepositoryException('Repetition targets must be greater than zero.');
+      throw RepositoryException(
+        'Repetition targets must be greater than zero.',
+      );
     }
 
     if (minReps > maxReps) {
@@ -243,7 +245,9 @@ class DriftRepository {
     }
 
     if (minReps <= 0 || maxReps <= 0) {
-      throw RepositoryException('Repetition targets must be greater than zero.');
+      throw RepositoryException(
+        'Repetition targets must be greater than zero.',
+      );
     }
 
     if (minReps > maxReps) {
@@ -466,6 +470,27 @@ class DriftRepository {
         .toList();
     result.sort((a, b) => b.count.compareTo(a.count));
     return result;
+  }
+
+  Future<Map<String, DateTime>> lastPerformedAtByMuscleGroup({
+    List<String>? groupIds,
+  }) async {
+    final join = _workoutLogJoin()
+      ..orderBy([OrderingTerm.desc(_db.workoutLogs.performedAt)]);
+    if (groupIds != null && groupIds.isNotEmpty) {
+      join.where(_db.muscleGroups.id.isIn(groupIds));
+    }
+
+    final rows = await join.get();
+    final map = <String, DateTime>{};
+    for (final row in rows) {
+      final group = row.readTableOrNull(_db.muscleGroups);
+      if (group == null) continue;
+      if (map.containsKey(group.id)) continue;
+      final log = row.readTable(_db.workoutLogs);
+      map[group.id] = DateTime.fromMillisecondsSinceEpoch(log.performedAt);
+    }
+    return map;
   }
 
   Future<void> close() => _db.close();
