@@ -96,7 +96,8 @@ class _PlanListPageState extends State<PlanListPage> {
                       : targets.join(', ');
 
                   final exerciseCount = plan.exercises.length;
-                  final defaultId = plan.defaultExerciseId ??
+                  final defaultId =
+                      plan.defaultExerciseId ??
                       (plan.exercises.isNotEmpty
                           ? plan.exercises.first.exerciseId
                           : null);
@@ -116,19 +117,15 @@ class _PlanListPageState extends State<PlanListPage> {
                         children: [
                           Text('Targets: $targetLabel'),
                           Text(
-                            'Exercises: $exerciseCount${defaultName == null
-                                    ? ''
-                                    : '  Default: $defaultName'}',
+                            'Exercises: $exerciseCount${defaultName == null ? '' : '  Default: $defaultName'}',
                           ),
-                          Text(
-                            () {
-                              final defaultState = plan.defaultExerciseState;
-                              if (defaultState == null) {
-                                return 'Next: No exercises configured yet';
-                              }
-                              return 'Next: ${defaultState.currentWeightKg.toStringAsFixed(1)} kg x ${defaultState.expectedReps} reps - ${defaultState.mets.toStringAsFixed(1)} METs';
-                            }(),
-                          ),
+                          Text(() {
+                            final defaultState = plan.defaultExerciseState;
+                            if (defaultState == null) {
+                              return 'Next: No exercises configured yet';
+                            }
+                            return 'Next: ${defaultState.currentWeightKg.toStringAsFixed(1)} kg x ${defaultState.expectedReps} reps - ${defaultState.mets.toStringAsFixed(1)} METs';
+                          }()),
                         ],
                       ),
                       trailing: Row(
@@ -151,10 +148,7 @@ class _PlanListPageState extends State<PlanListPage> {
                               }
                             },
                             itemBuilder: (_) => const [
-                              PopupMenuItem(
-                                value: 'edit',
-                                child: Text('Edit'),
-                              ),
+                              PopupMenuItem(value: 'edit', child: Text('Edit')),
                               PopupMenuItem(
                                 value: 'delete',
                                 child: Text('Delete'),
@@ -163,14 +157,13 @@ class _PlanListPageState extends State<PlanListPage> {
                             icon: const Icon(Icons.more_vert),
                           ),
                           IconButton(
-                            tooltip: 'Log session',
+                            tooltip: 'Start workout',
                             icon: const Icon(Icons.play_arrow),
                             onPressed: () async {
                               await Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) =>
-                                      SessionPage(planId: plan.id),
+                                  builder: (_) => SessionPage(planId: plan.id),
                                 ),
                               );
                               setState(() {});
@@ -198,7 +191,3 @@ class _PlanListPageState extends State<PlanListPage> {
     );
   }
 }
-
-
-
-

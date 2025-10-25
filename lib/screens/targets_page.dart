@@ -31,6 +31,7 @@ class _TargetsPageState extends State<TargetsPage> {
   int defaultMin = 6;
   int defaultMax = 12;
   double defaultIncKg = 2.0;
+  int restTimerSeconds = 180;
   List<MuscleGroup> _flatGroups = const <MuscleGroup>[];
 
   @override
@@ -282,6 +283,8 @@ class _TargetsPageState extends State<TargetsPage> {
     defaultMax = settings.get('defaultMaxReps', defaultValue: 12);
     defaultIncKg = (settings.get('defaultIncKg', defaultValue: 2.0) as num)
         .toDouble();
+    restTimerSeconds =
+        (settings.get('rest_timer_seconds', defaultValue: 180) as num).toInt();
 
     setState(() {});
   }
@@ -318,6 +321,7 @@ class _TargetsPageState extends State<TargetsPage> {
     await settings.put('defaultMinReps', defaultMin);
     await settings.put('defaultMaxReps', defaultMax);
     await settings.put('defaultIncKg', defaultIncKg);
+    await settings.put('rest_timer_seconds', restTimerSeconds);
 
     // Notifications
     if (weighInEnabled) {
@@ -530,6 +534,22 @@ class _TargetsPageState extends State<TargetsPage> {
                 onSelected: (_) => setState(() => defaultMets = m),
               );
             }).toList(),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            key: ValueKey(restTimerSeconds),
+            initialValue: (restTimerSeconds ~/ 60).toString(),
+            decoration: const InputDecoration(
+              labelText: 'Rest timer',
+              suffixText: 'minutes',
+            ),
+            keyboardType: TextInputType.number,
+            onChanged: (v) {
+              final parsed = int.tryParse(v.trim());
+              if (parsed != null && parsed > 0) {
+                setState(() => restTimerSeconds = parsed * 60);
+              }
+            },
           ),
           const SizedBox(height: 16),
 

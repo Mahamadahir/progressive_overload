@@ -11,6 +11,12 @@ import 'package:fitness_app/repositories/drift_repository.dart';
 import 'health_service.dart'; // getLatestWeight(), writeStrengthWorkout()
 import 'notification_service.dart';
 
+class ExerciseSetEntry {
+  final int reps;
+  final double weightKg;
+  const ExerciseSetEntry({required this.reps, required this.weightKg});
+}
+
 class WorkoutService {
   // Explicit generic types + aliases
   final Box<wp.WorkoutPlan> _planBox = Hive.box<wp.WorkoutPlan>('plans');
@@ -315,39 +321,45 @@ class WorkoutService {
     await _planBox.delete(id);
   }
 
-  /// Compute kcal via METs: (sets*reps*5)/3600 * bodyWeightKg * MET
+  /// Compute kcal via METs using time under tension.
   Future<double> _estimateEnergyKcal({
     required int sets,
-    required int reps,
+    required int totalReps,
     double mets = 3.0,
   }) async {
     final bodyWeight = await HealthService.getLatestWeight();
     if (bodyWeight == null) return 0;
-    final durationHrs = (sets * reps * 5) / 3600.0;
-    return durationHrs * bodyWeight * mets;
+    final minutesUnderTension = totalReps * 5 / 60.0;
+    final kcal = mets * 3.5 * bodyWeight / 200.0 * minutesUnderTension;
+    return kcal;
   }
 
-  /// Saves the session to Health Connect/Apple Health and updates plan progression
-  Future<wl.WorkoutLog> logSession({
+  /// Saves the exercise to Health Connect/Apple Health and updates plan progression
+  Future<wl.WorkoutLog> logExercise({
     required wp.WorkoutPlan plan,
-    required int sets,
-    required int achievedReps,
+    required String exerciseId,
+    required String exerciseName,
+    required List<ExerciseSetEntry> sets,
     required bool targetMet,
     double? overrideMets, // optional per-session override
-    String? exerciseId,
   }) async {
-    final resolvedExerciseId =
-        exerciseId ??
-        plan.defaultExerciseId ??
-        plan.primaryExercise?.exerciseId;
-    if (resolvedExerciseId == null) {
-      throw ArgumentError('No exercise available for logging on this plan.');
+    if (sets.isEmpty) {
+      throw ArgumentError('At least one set is required.');
+    }
+
+    final totalSets = sets.length;
+    final totalReps = sets.fold<int>(0, (sum, entry) => sum + entry.reps);
+    if (totalSets <= 0 || totalReps <= 0) {
+      throw ArgumentError('Sets and reps must be greater than zero.');
+    }
+    if (sets.any((entry) => entry.weightKg.isNaN || entry.weightKg < 0)) {
+      throw ArgumentError('Weight must be >= 0 for all sets.');
     }
 
     final state = plan.exercises.firstWhere(
-      (entry) => entry.exerciseId == resolvedExerciseId,
+      (entry) => entry.exerciseId == exerciseId,
       orElse: () => throw ArgumentError(
-        'Exercise $resolvedExerciseId is not assigned to this plan.',
+        'Exercise $exerciseId is not assigned to this plan.',
       ),
     );
 
@@ -356,32 +368,34 @@ class WorkoutService {
 
     // 1) Estimate calories
     final energy = await _estimateEnergyKcal(
-      sets: sets,
-      reps: achievedReps,
+      sets: totalSets,
+      totalReps: totalReps,
       mets: metsUsed,
     );
 
     // 2) Write workout via HealthService helper
     final now = DateTime.now();
-    final durationSec = sets * achievedReps * 5;
+    final durationSec = totalReps * 5;
     final start = now.subtract(Duration(seconds: durationSec));
 
     await HealthService.writeStrengthWorkout(
       start: start,
       end: now,
       energyKcal: energy.round().toDouble(),
-      title: "Plan: ${plan.name}",
+      title: exerciseName,
     );
 
     // 3) Save local log
-    final performedWeightKg = state.currentWeightKg;
+    final avgReps = (totalReps / totalSets)
+        .ceil(); // preserve legacy per-set expectation
+    final lastWeight = sets.last.weightKg;
     final log = wl.WorkoutLog(
       planId: plan.id,
       date: now,
       expectedWeightKg: state.currentWeightKg,
       expectedReps: state.expectedReps,
-      sets: sets,
-      achievedReps: achievedReps,
+      sets: totalSets,
+      achievedReps: avgReps,
       targetMet: targetMet,
       energyKcal: energy,
       metsUsed: metsUsed, // record what we actually used
@@ -397,9 +411,9 @@ class WorkoutService {
       await driftRepository.logWorkout(
         workoutId: driftWorkout.id,
         exerciseId: state.exerciseId,
-        sets: sets,
-        reps: achievedReps,
-        weightKg: performedWeightKg,
+        sets: totalSets,
+        reps: totalReps,
+        weightKg: lastWeight,
         energyKcal: energy,
         metsUsed: metsUsed,
         performedAt: now,
@@ -415,13 +429,15 @@ class WorkoutService {
     }
 
     // 4) Update plan progression
-    if (targetMet && achievedReps >= state.maxReps) {
-      state.currentWeightKg = state.currentWeightKg + state.incrementKg;
+    state.currentWeightKg = lastWeight;
+    if (targetMet && sets.last.reps >= state.maxReps) {
+      state.currentWeightKg = lastWeight + state.incrementKg;
       state.expectedReps = state.minReps; // reset to floor
     } else {
       // stay at same weight; nudge target reps upward (bounded)
-      final next = (state.expectedReps + 1).clamp(state.minReps, state.maxReps);
-      // clamp returns num; ensure int
+      final next = (state.expectedReps + 1)
+          .clamp(state.minReps, state.maxReps)
+          .toInt();
       state.expectedReps = next;
     }
 

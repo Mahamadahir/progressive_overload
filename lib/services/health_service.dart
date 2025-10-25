@@ -88,12 +88,12 @@ class HealthService {
     });
   }
 
-  /// Save a strength workout (writes workout + total kcal).
+  /// Save a strength exercise record (writes workout + total kcal).
   static Future<bool> writeStrengthWorkout({
     required DateTime start,
     required DateTime end,
     required double energyKcal,
-    String? title,
+    required String title,
   }) async {
     final ok = await ensureWorkoutWritePermissions();
     if (!ok) return false;
@@ -277,6 +277,7 @@ class HealthService {
     }
     return result;
   }
+
 
   /// Batched: pull TOTAL_CALORIES_BURNED once, de-duplicate, group by day.
   Future<Map<String, double>> getCaloriesBurnedByDayFast(

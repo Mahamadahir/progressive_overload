@@ -92,7 +92,7 @@ class _PlanDetailPageState extends State<PlanDetailPage> {
           });
         },
         icon: const Icon(Icons.play_arrow),
-        label: const Text('Log session'),
+        label: const Text('Start workout'),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -128,7 +128,7 @@ class _PlanDetailPageState extends State<PlanDetailPage> {
                 ),
               );
             },
-      ),
+          ),
           const SizedBox(height: 12),
           StreamBuilder<List<ExerciseDetail>>(
             stream: driftRepository.watchExercises(),
@@ -153,7 +153,9 @@ class _PlanDetailPageState extends State<PlanDetailPage> {
                   final state = plan.exercises[i];
                   final detail = details[state.exerciseId];
                   final name = detail?.exercise.name ?? 'Exercise';
-                  final groupNames = detail?.groups.map((g) => g.name).join(', ');
+                  final groupNames = detail?.groups
+                      .map((g) => g.name)
+                      .join(', ');
                   final info =
                       'Start: ${state.startWeightKg.toStringAsFixed(1)} kg  '
                       'Current: ${state.currentWeightKg.toStringAsFixed(1)} kg  '
@@ -182,7 +184,8 @@ class _PlanDetailPageState extends State<PlanDetailPage> {
                 }
               }
 
-              final defaultId = plan.defaultExerciseId ??
+              final defaultId =
+                  plan.defaultExerciseId ??
                   (plan.exercises.isNotEmpty
                       ? plan.exercises.first.exerciseId
                       : null);
@@ -195,23 +198,29 @@ class _PlanDetailPageState extends State<PlanDetailPage> {
               tiles.add(
                 ListTile(
                   title: const Text('Next up'),
-                  subtitle: Text(
-                    () {
-                      final parts = <String>[];
-                      if (defaultName != null) {
-                        parts.add('Exercise: $defaultName');
-                      }
-                      if (defaultState != null) {
-                        parts.add('Weight: ${defaultState.currentWeightKg.toStringAsFixed(1)} kg');
-                        parts.add('Reps: ${defaultState.expectedReps} (min ${defaultState.minReps}-${defaultState.maxReps})');
-                        parts.add('Increment: ${defaultState.incrementKg.toStringAsFixed(1)} kg');
-                        parts.add('METs: ${defaultState.mets.toStringAsFixed(1)}');
-                      } else {
-                        parts.add('No exercises configured yet');
-                      }
-                      return parts.join(' - ');
-                    }(),
-                  ),
+                  subtitle: Text(() {
+                    final parts = <String>[];
+                    if (defaultName != null) {
+                      parts.add('Exercise: $defaultName');
+                    }
+                    if (defaultState != null) {
+                      parts.add(
+                        'Weight: ${defaultState.currentWeightKg.toStringAsFixed(1)} kg',
+                      );
+                      parts.add(
+                        'Reps: ${defaultState.expectedReps} (min ${defaultState.minReps}-${defaultState.maxReps})',
+                      );
+                      parts.add(
+                        'Increment: ${defaultState.incrementKg.toStringAsFixed(1)} kg',
+                      );
+                      parts.add(
+                        'METs: ${defaultState.mets.toStringAsFixed(1)}',
+                      );
+                    } else {
+                      parts.add('No exercises configured yet');
+                    }
+                    return parts.join(' - ');
+                  }()),
                 ),
               );
 
@@ -250,8 +259,8 @@ class _PlanDetailPageState extends State<PlanDetailPage> {
                       plan = Hive.box<WorkoutPlan>('plans').get(widget.planId)!;
                     });
                   },
-                  icon: const Icon(Icons.edit),
-                  label: const Text('Log now'),
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('Start workout'),
                 ),
               ),
             ],
@@ -286,6 +295,3 @@ class _PlanDetailPageState extends State<PlanDetailPage> {
     );
   }
 }
-
-
-
