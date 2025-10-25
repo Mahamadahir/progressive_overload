@@ -506,38 +506,43 @@ class _RestTimerScreenState extends State<RestTimerScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'Rest',
-              style: theme.textTheme.headlineMedium?.copyWith(
-                color: Colors.white70,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              _format(_remaining),
-              style: theme.textTheme.displayLarge?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2,
-              ),
-            ),
-            const SizedBox(height: 40),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.white24,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                'Rest',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  color: Colors.white70,
                 ),
               ),
-              child: const Text('Skip'),
-            ),
-          ],
+              const SizedBox(height: 24),
+              Text(
+                _format(_remaining),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.displayLarge?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2,
+                ),
+              ),
+              const SizedBox(height: 40),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.white24,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 16,
+                  ),
+                ),
+                child: const Text('Skip'),
+              ),
+            ],
+          ),
         ),
       ),
     );
