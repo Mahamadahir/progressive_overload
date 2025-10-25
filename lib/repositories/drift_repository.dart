@@ -395,12 +395,42 @@ class DriftRepository {
   Stream<List<WorkoutLogDetail>> watchLogsForWorkout(String workoutId) {
     final query = _workoutLogJoin()
       ..where(_db.workoutLogs.workoutId.equals(workoutId));
+    query.orderBy([OrderingTerm.desc(_db.workoutLogs.performedAt)]);
     return query.watch().map(_mapWorkoutLogRows);
   }
 
   Future<List<WorkoutLogDetail>> getLogsForWorkout(String workoutId) async {
     final query = _workoutLogJoin()
       ..where(_db.workoutLogs.workoutId.equals(workoutId));
+    query.orderBy([OrderingTerm.desc(_db.workoutLogs.performedAt)]);
+    final rows = await query.get();
+    return _mapWorkoutLogRows(rows);
+  }
+
+  Future<List<WorkoutLogDetail>> getWorkoutHistory({
+    DateTime? start,
+    DateTime? end,
+    int? limit,
+  }) async {
+    final query = _workoutLogJoin();
+    if (start != null) {
+      query.where(
+        _db.workoutLogs.performedAt.isBiggerOrEqualValue(
+          start.millisecondsSinceEpoch,
+        ),
+      );
+    }
+    if (end != null) {
+      query.where(
+        _db.workoutLogs.performedAt.isSmallerOrEqualValue(
+          end.millisecondsSinceEpoch,
+        ),
+      );
+    }
+    query.orderBy([OrderingTerm.desc(_db.workoutLogs.performedAt)]);
+    if (limit != null) {
+      query.limit(limit);
+    }
     final rows = await query.get();
     return _mapWorkoutLogRows(rows);
   }
@@ -590,6 +620,10 @@ class DriftRepository {
     final base = _db.select(_db.workoutLogs);
     final join = base.join([
       leftOuterJoin(
+        _db.workouts,
+        _db.workouts.id.equalsExp(_db.workoutLogs.workoutId),
+      ),
+      leftOuterJoin(
         _db.exercises,
         _db.exercises.id.equalsExp(_db.workoutLogs.exerciseId),
       ),
@@ -614,6 +648,7 @@ class DriftRepository {
     final details = <WorkoutLogDetail>[];
     for (final entry in grouped.entries) {
       final log = entry.value.first.readTable(_db.workoutLogs);
+      final workout = entry.value.first.readTableOrNull(_db.workouts);
       final exercise = entry.value.first.readTableOrNull(_db.exercises);
       final groups =
           entry.value
@@ -623,7 +658,12 @@ class DriftRepository {
               .toList()
             ..sort((a, b) => a.name.compareTo(b.name));
       details.add(
-        WorkoutLogDetail(log: log, exercise: exercise, groups: groups),
+        WorkoutLogDetail(
+          log: log,
+          workout: workout,
+          exercise: exercise,
+          groups: groups,
+        ),
       );
     }
 
@@ -646,10 +686,12 @@ class ExerciseDetail {
 
 class WorkoutLogDetail {
   final WorkoutLog log;
+  final Workout? workout;
   final Exercise? exercise;
   final List<MuscleGroup> groups;
   const WorkoutLogDetail({
     required this.log,
+    this.workout,
     required this.exercise,
     required this.groups,
   });
