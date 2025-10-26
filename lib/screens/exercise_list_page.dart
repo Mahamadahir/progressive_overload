@@ -4,6 +4,8 @@ import 'package:fitness_app/database/database_provider.dart';
 import 'package:fitness_app/repositories/drift_repository.dart';
 import 'package:fitness_app/screens/create_exercise_page.dart';
 
+enum _ExerciseAction { edit, delete }
+
 class ExerciseListPage extends StatelessWidget {
   const ExerciseListPage({super.key});
 
@@ -14,6 +16,46 @@ class ExerciseListPage extends StatelessWidget {
         builder: (_) => CreateExercisePage(exerciseId: exerciseId),
       ),
     );
+  }
+
+  Future<void> _confirmDelete(
+    BuildContext context,
+    ExerciseDetail detail,
+  ) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete exercise?'),
+        content: Text(
+          'This will remove "${detail.exercise.name}". '
+          'Existing workouts that reference it will keep their historical data.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete != true || !context.mounted) {
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await driftRepository.deleteExercise(detail.exercise.id);
+      messenger.showSnackBar(const SnackBar(content: Text('Exercise deleted')));
+    } catch (error) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not delete exercise: $error')),
+      );
+    }
   }
 
   @override
@@ -86,7 +128,30 @@ class ExerciseListPage extends StatelessWidget {
                       : Wrap(children: chips),
                   onTap: () =>
                       _openCreate(context, exerciseId: detail.exercise.id),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: PopupMenuButton<_ExerciseAction>(
+                    tooltip: 'Options',
+                    onSelected: (action) {
+                      switch (action) {
+                        case _ExerciseAction.edit:
+                          _openCreate(context, exerciseId: detail.exercise.id);
+                          break;
+                        case _ExerciseAction.delete:
+                          _confirmDelete(context, detail);
+                          break;
+                      }
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem<_ExerciseAction>(
+                        value: _ExerciseAction.edit,
+                        child: Text('Edit'),
+                      ),
+                      PopupMenuItem<_ExerciseAction>(
+                        value: _ExerciseAction.delete,
+                        child: Text('Delete'),
+                      ),
+                    ],
+                    icon: const Icon(Icons.more_vert),
+                  ),
                 ),
               );
             },
