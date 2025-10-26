@@ -2,7 +2,7 @@
 
 Progressive overload training companion that blends workout planning, nutrition logging, and Health Connect / Apple Health insights in a single Flutter app.
 
-> Platform support: Android (Health Connect) only right now. Apple Health work is queued—check the roadmap below.
+> Platform support: Android (Health Connect) only right now. Apple Health / iOS builds are not configured yet—see the roadmap for planned support.
 
 > Release: **Muscle Groups Drift** (completed) - adds hierarchical muscle targeting, inactivity alerts, enriched trends, and dark mode.
 
@@ -30,6 +30,7 @@ Progressive overload training companion that blends workout planning, nutrition 
 - [ ] Rebuild automated test suite (unit, widget, and integration coverage)
 - [ ] Apple Health parity and publishing checklist
 - [ ] Cross-platform UI polish before expanding beyond Android
+- [ ] Containerize the project for consistent local tooling
 
 ## Tech Stack
 - Flutter (Material 3, Dart 3.8)
