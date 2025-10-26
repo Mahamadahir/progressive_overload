@@ -88,9 +88,9 @@ class _TrendsCalendarPageState extends State<TrendsCalendarPage> {
       await HealthHistoryPermission.ensureHistoryPermission();
 
       final granted = await health.hasPermissions(
-        [HealthDataType.DISTANCE_DELTA], 
+        [HealthDataType.DISTANCE_DELTA],
         permissions: [HealthDataAccess.READ],
-    );
+      );
 
       // Batch all data for the month
       final intake = _meal.intakeByDay(start, end);
@@ -149,6 +149,44 @@ class _TrendsCalendarPageState extends State<TrendsCalendarPage> {
       if (mounted) {
         setState(() => _loading = false);
       }
+    }
+  }
+
+  Future<void> _clearHealthCache() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Clear cached health data?'),
+        content: const Text(
+          'This removes locally cached calories, steps, and weight. '
+          'Fresh data will be fetched from Health Connect next time.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await Hive.box('health_cache').clear();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Health cache cleared')));
+      await _loadMonth();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not clear cache: $error')));
     }
   }
 
@@ -267,6 +305,11 @@ class _TrendsCalendarPageState extends State<TrendsCalendarPage> {
             tooltip: 'Reload month',
             onPressed: _loading ? null : _loadMonth,
             icon: const Icon(Icons.refresh),
+          ),
+          IconButton(
+            tooltip: 'Clear cached health data',
+            onPressed: _loading ? null : _clearHealthCache,
+            icon: const Icon(Icons.delete_outline),
           ),
         ],
       ),

@@ -278,7 +278,6 @@ class HealthService {
     return result;
   }
 
-
   /// Batched: pull TOTAL_CALORIES_BURNED once, de-duplicate, group by day.
   Future<Map<String, double>> getCaloriesBurnedByDayFast(
     DateTime start,
@@ -321,9 +320,11 @@ class HealthService {
     }
 
     // Optional sanity: clamp truly wild daily sums (provider bugs)
-    out.updateAll(
-      (_, kcal) => (kcal.isFinite && kcal >= 0 && kcal < 20000) ? kcal : 0.0,
-    );
+    out.updateAll((_, kcal) {
+      if (!kcal.isFinite || kcal < 0) return 0.0;
+      if (kcal > 20000) return kcal / 1000;
+      return kcal;
+    });
 
     return out;
   }
@@ -601,7 +602,14 @@ extension HealthServiceCache on HealthService {
     for (final (rs, re) in _coalesceDays(missing)) {
       final fetched = await getCaloriesBurnedByDayFast(rs, re);
       fetched.forEach((k, v) {
-        final cleaned = (v.isFinite && v >= 0 && v < 20000) ? v : 0.0;
+        double cleaned;
+        if (!v.isFinite || v < 0) {
+          cleaned = 0.0;
+        } else if (v > 20000) {
+          cleaned = v / 1000;
+        } else {
+          cleaned = v;
+        }
         _cache.put('kcal:$k', cleaned);
         out[k] = cleaned;
       });

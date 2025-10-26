@@ -9,18 +9,61 @@ import 'package:fitness_app/health_singleton.dart'; // uses: final Health health
 import 'package:fitness_app/services/health_service.dart';
 import 'package:fitness_app/services/health_history_permission.dart';
 
-/// Top-level constants so helpers + UI can both reference them.
-const List<HealthDataType> hcTypes = <HealthDataType>[
-  HealthDataType.WORKOUT,
-  HealthDataType.TOTAL_CALORIES_BURNED,
-  HealthDataType.WEIGHT,
+class _HcPermission {
+  final HealthDataType type;
+  final HealthDataAccess access;
+  final IconData icon;
+  final String label;
+  final String description;
+
+  const _HcPermission({
+    required this.type,
+    required this.access,
+    required this.icon,
+    required this.label,
+    required this.description,
+  });
+}
+
+/// Health Connect permissions the app relies on.
+const List<_HcPermission> hcPermissionMatrix = <_HcPermission>[
+  _HcPermission(
+    type: HealthDataType.WORKOUT,
+    access: HealthDataAccess.READ_WRITE,
+    icon: Icons.fitness_center,
+    label: 'Workouts',
+    description: 'Read logged workouts and write sessions from the app.',
+  ),
+  _HcPermission(
+    type: HealthDataType.TOTAL_CALORIES_BURNED,
+    access: HealthDataAccess.READ_WRITE,
+    icon: Icons.local_fire_department,
+    label: 'Total calories burned',
+    description: 'Read daily burn totals and sync workout energy.',
+  ),
+  _HcPermission(
+    type: HealthDataType.STEPS,
+    access: HealthDataAccess.READ,
+    icon: Icons.directions_walk,
+    label: 'Steps',
+    description: 'Read step counts for targets and calendar trends.',
+  ),
+  _HcPermission(
+    type: HealthDataType.WEIGHT,
+    access: HealthDataAccess.READ,
+    icon: Icons.monitor_weight,
+    label: 'Weight',
+    description: 'Read weight history for progress charts.',
+  ),
 ];
 
-List<HealthDataAccess> get hcPermissions => <HealthDataAccess>[
-  HealthDataAccess.READ_WRITE, // WORKOUT
-  HealthDataAccess.READ_WRITE, // TOTAL_CALORIES_BURNED
-  HealthDataAccess.READ, // WEIGHT
-];
+final List<HealthDataType> hcTypes = List.unmodifiable(
+  hcPermissionMatrix.map((entry) => entry.type),
+);
+
+final List<HealthDataAccess> hcPermissions = List.unmodifiable(
+  hcPermissionMatrix.map((entry) => entry.access),
+);
 
 class HealthConnectDiagnosticsPage extends StatefulWidget {
   const HealthConnectDiagnosticsPage({super.key});
@@ -234,6 +277,15 @@ class _HealthConnectDiagnosticsPageState
                   ),
                   const SizedBox(height: 16),
                   Text(
+                    'Required permissions',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  ...hcPermissionMatrix.map(
+                    (entry) => _PermissionTile(entry: entry),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
                     'Permissions: ${hasPerms ? "GRANTED" : "NOT GRANTED"}${_authBusy ? " (requesting...)" : ""}',
                   ),
                   const SizedBox(height: 8),
@@ -284,6 +336,32 @@ class _HealthConnectDiagnosticsPageState
                 ],
               ),
             ),
+    );
+  }
+}
+
+class _PermissionTile extends StatelessWidget {
+  final _HcPermission entry;
+  const _PermissionTile({required this.entry});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accessLabel = entry.access.name
+        .toLowerCase()
+        .replaceAll('_', ' ')
+        .replaceAll('read write', 'read/write');
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(entry.icon, color: theme.colorScheme.primary),
+      title: Text(entry.label),
+      subtitle: Text(entry.description),
+      trailing: Text(
+        accessLabel,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }
