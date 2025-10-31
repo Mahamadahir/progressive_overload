@@ -4,7 +4,6 @@ import 'package:meta/meta.dart';
 // Existing pages
 import 'screens/calorie_summary_page.dart';
 import 'screens/log_calories_page.dart';
-import 'screens/trends_page.dart';
 import 'screens/workout_session_page.dart';
 import 'screens/workout_history_page.dart';
 import 'screens/plan_list_page.dart';
@@ -63,7 +62,6 @@ class App extends StatelessWidget {
       '/plans': (context) => const PlanListPage(),
       '/calories': (context) => CalorieSummaryPage(),
       '/log_calories': (context) => LogCaloriesPage(),
-      '/trends': (context) => TrendsPage(),
       '/workout': (context) => WorkoutSessionPage(),
       '/workout_history': (context) => WorkoutHistoryPage(),
       '/create_workout': (context) => const CreateWorkoutPage(),

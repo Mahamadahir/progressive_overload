@@ -191,6 +191,12 @@ class _TrendsCalendarPageState extends State<TrendsCalendarPage> {
   }
 
   /// --- NEW: Day reload helper (fresh pull for a single day) ---
+  double _sanitizeKcal(double value) {
+    if (!value.isFinite || value < 0) return 0.0;
+    if (value > 20000) return value / 1000;
+    return value;
+  }
+
   Future<_DaySummary> _fetchDaySummary(DateTime day) async {
     final dayStart = DateTime(day.year, day.month, day.day);
     final dayEnd = dayStart.add(const Duration(days: 1));
@@ -205,17 +211,17 @@ class _TrendsCalendarPageState extends State<TrendsCalendarPage> {
       dayStart,
       dayEnd,
     );
-    final burned = burnedMap[key] ?? 0.0;
+    final burned = _sanitizeKcal(burnedMap[key] ?? 0.0);
 
-    final stepsFast = await _health.getStepsByDayFast(
-      dayStart,
-      dayEnd,
-    ); // Map<String,double>
-    final steps = stepsFast[key]?.round();
+    final stepsFast = await _health.getStepsByDayFast(dayStart, dayEnd);
+    final stepsValue = stepsFast[key];
+    final steps = (stepsValue == null || !stepsValue.isFinite || stepsValue < 0)
+        ? 0
+        : stepsValue.round();
 
     final weightMap = await HealthServiceTrends(
       _health,
-    ).getWeightByDay(dayStart, dayEnd); // Map<String,double?>
+    ).getWeightByDay(dayStart, dayEnd);
     final weight = weightMap[key];
 
     final wAgg = await HealthServiceTrends(_health).getWorkoutAggByDay(
@@ -223,6 +229,11 @@ class _TrendsCalendarPageState extends State<TrendsCalendarPage> {
       dayEnd,
     ); // Map<String,({int count,int kcal})>
     final workouts = wAgg[key];
+
+    final cache = Hive.box('health_cache');
+    cache.put('kcal:$key', burned);
+    cache.put('steps:$key', steps);
+    cache.put('weight:$key', weight ?? double.nan);
 
     return _DaySummary(
       date: dayStart,
@@ -413,7 +424,7 @@ class _TrendsCalendarPageState extends State<TrendsCalendarPage> {
         builder: (_, controller) => Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: StatefulBuilder(
-            builder: (context, setStateSheet) {
+            builder: (sheetContext, setStateSheet) {
               final meals = sheetSummary.meals;
               return ListView(
                 controller: controller,
@@ -510,6 +521,26 @@ class _TrendsCalendarPageState extends State<TrendsCalendarPage> {
                         title: Text(m.name),
                         subtitle: Text(
                           '${m.massGrams.toStringAsFixed(0)} g • ${m.kcal.toStringAsFixed(0)} kcal',
+                        ),
+                        trailing: IconButton(
+                          tooltip: 'Delete meal log',
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () async {
+                            await _meal.deleteLog(m.id);
+                            final fresh = await _fetchDaySummary(
+                              sheetSummary.date,
+                            );
+                            if (!mounted) return;
+                            setState(() {
+                              _days[_key(sheetSummary.date)] = fresh;
+                            });
+                            setStateSheet(() {
+                              sheetSummary = fresh;
+                            });
+                            ScaffoldMessenger.of(this.context).showSnackBar(
+                              SnackBar(content: Text('Deleted "${m.name}"')),
+                            );
+                          },
                         ),
                       ),
                     ),
