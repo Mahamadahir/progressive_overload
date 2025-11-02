@@ -87,7 +87,7 @@ class _TrendsCalendarPageState extends State<TrendsCalendarPage> {
     try {
       await HealthHistoryPermission.ensureHistoryPermission();
 
-      final granted = await health.hasPermissions(
+      await health.hasPermissions(
         [HealthDataType.DISTANCE_DELTA],
         permissions: [HealthDataAccess.READ],
       );
@@ -537,7 +537,7 @@ class _TrendsCalendarPageState extends State<TrendsCalendarPage> {
                             setStateSheet(() {
                               sheetSummary = fresh;
                             });
-                            ScaffoldMessenger.of(this.context).showSnackBar(
+                            ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(content: Text('Deleted "${m.name}"')),
                             );
                           },

@@ -161,6 +161,65 @@ class _LogCaloriesPageState extends State<LogCaloriesPage> {
     _syncLineEditorsWithComponents();
   }
 
+  Future<({String name, double kcal})?> _componentFormDialog({
+    required String title,
+    String confirmLabel = 'Save',
+    String? initialName,
+    double? initialKcal,
+  }) async {
+    final nameCtrl = TextEditingController(text: initialName ?? '');
+    final kcalCtrl = TextEditingController(
+      text: initialKcal != null ? initialKcal.toString() : '100',
+    );
+    try {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Text(title),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(labelText: 'Name'),
+              ),
+              TextField(
+                controller: kcalCtrl,
+                decoration: const InputDecoration(labelText: 'kcal per 100g'),
+                keyboardType: TextInputType.number,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(confirmLabel),
+            ),
+          ],
+        ),
+      );
+      if (ok == true) {
+        final name = nameCtrl.text.trim();
+        final kcal = double.tryParse(kcalCtrl.text) ?? 0;
+        if (name.isEmpty || kcal <= 0) {
+          if (mounted) {
+            setState(() => _msg = 'Enter valid name and kcal/100g > 0');
+          }
+          return null;
+        }
+        return (name: name, kcal: kcal);
+      }
+      return null;
+    } finally {
+      nameCtrl.dispose();
+      kcalCtrl.dispose();
+    }
+  }
+
   void _selectTemplate(MealTemplate? template) {
     if (template != null) {
       final resolved = _findTemplateById(template.id, _templates) ?? template;
@@ -213,25 +272,46 @@ class _LogCaloriesPageState extends State<LogCaloriesPage> {
   }
 
   Future<void> _newComponentDialog() async {
-    final nameCtrl = TextEditingController();
-    final kcalCtrl = TextEditingController(text: '100');
-    final ok = await showDialog<bool>(
+    final result = await _componentFormDialog(title: 'New component');
+    if (result == null) return;
+    await _svc.createOrUpdateComponent(
+      name: result.name,
+      kcalPer100g: result.kcal,
+    );
+    if (!mounted) return;
+    setState(() {
+      _updateComponentList(_svc.getAllComponents());
+      _msg = 'Added component "${result.name}"';
+    });
+  }
+
+  Future<void> _editComponentDialog(FoodComponent component) async {
+    final result = await _componentFormDialog(
+      title: 'Edit component',
+      initialName: component.name,
+      initialKcal: component.kcalPer100g,
+    );
+    if (result == null) return;
+    await _svc.createOrUpdateComponent(
+      id: component.id,
+      name: result.name,
+      kcalPer100g: result.kcal,
+    );
+    if (!mounted) return;
+    setState(() {
+      _updateComponentList(_svc.getAllComponents());
+      _msg = 'Updated component "${result.name}"';
+    });
+  }
+
+  Future<void> _deleteComponent(FoodComponent component) async {
+    final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('New component'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              decoration: const InputDecoration(labelText: 'Name'),
-            ),
-            TextField(
-              controller: kcalCtrl,
-              decoration: const InputDecoration(labelText: 'kcal per 100g'),
-              keyboardType: TextInputType.number,
-            ),
-          ],
+        title: const Text('Delete component?'),
+        content: Text(
+          'Remove "${component.name}" from your component library? '
+          'Existing meal templates will need to be updated manually.',
         ),
         actions: [
           TextButton(
@@ -240,24 +320,113 @@ class _LogCaloriesPageState extends State<LogCaloriesPage> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Save'),
+            child: const Text('Delete'),
           ),
         ],
       ),
     );
-    if (ok == true) {
-      final name = nameCtrl.text.trim();
-      final kcal = double.tryParse(kcalCtrl.text) ?? 0;
-      if (name.isEmpty || kcal <= 0) {
-        setState(() => _msg = 'Enter valid name and kcal/100g > 0');
-        return;
-      }
-      await _svc.createOrUpdateComponent(name: name, kcalPer100g: kcal);
-      setState(() {
-        _updateComponentList(_svc.getAllComponents());
-        _msg = 'Added component "$name"';
-      });
-    }
+    if (confirm != true) return;
+    await _svc.deleteComponent(component.id);
+    if (!mounted) return;
+    setState(() {
+      _updateComponentList(_svc.getAllComponents());
+      _msg = 'Deleted component "${component.name}"';
+    });
+  }
+
+  Future<void> _manageComponentsSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          final components = _svc.getAllComponents();
+          return FractionallySizedBox(
+            heightFactor: 0.7,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Manage components',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          tooltip: 'Close',
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: components.isEmpty
+                          ? const Center(child: Text('No components yet.'))
+                          : ListView.separated(
+                              itemCount: components.length,
+                              separatorBuilder: (context, _) =>
+                                  const Divider(height: 1),
+                              itemBuilder: (context, index) {
+                                final component = components[index];
+                                return ListTile(
+                                  title: Text(component.name),
+                                  subtitle: Text(
+                                    '${component.kcalPer100g.toStringAsFixed(0)} kcal / 100g',
+                                  ),
+                                  trailing: Wrap(
+                                    spacing: 4,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.edit),
+                                        tooltip: 'Edit',
+                                        onPressed: () async {
+                                          await _editComponentDialog(component);
+                                          if (!mounted) return;
+                                          setSheetState(() {});
+                                        },
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete),
+                                        tooltip: 'Delete',
+                                        onPressed: () async {
+                                          await _deleteComponent(component);
+                                          if (!mounted) return;
+                                          setSheetState(() {});
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.add),
+                        label: const Text('New component'),
+                        onPressed: () async {
+                          await _newComponentDialog();
+                          if (!mounted) return;
+                          setSheetState(() {});
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   // Template edit/delete
@@ -533,10 +702,21 @@ class _LogCaloriesPageState extends State<LogCaloriesPage> {
                           .toList(),
                     ),
                     const SizedBox(height: 8),
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.add),
-                      label: const Text('New component'),
-                      onPressed: _newComponentDialog,
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.add),
+                          label: const Text('New component'),
+                          onPressed: _newComponentDialog,
+                        ),
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.tune),
+                          label: const Text('Manage components'),
+                          onPressed: _manageComponentsSheet,
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     ..._lines.asMap().entries.map((entry) {
