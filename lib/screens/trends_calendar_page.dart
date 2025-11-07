@@ -193,7 +193,7 @@ class _TrendsCalendarPageState extends State<TrendsCalendarPage> {
   /// --- NEW: Day reload helper (fresh pull for a single day) ---
   double _sanitizeKcal(double value) {
     if (!value.isFinite || value < 0) return 0.0;
-    if (value > 20000) return value / 1000;
+    if (value > 30000) return value / 1000;
     return value;
   }
 

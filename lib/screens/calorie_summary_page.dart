@@ -84,9 +84,8 @@ class _CalorieSummaryPageState extends State<CalorieSummaryPage>
       final start = today.subtract(const Duration(days: 6));
 
       final intake = _mealService.todayIntakeKcal(now: now);
-      final burned = await _healthService.getCaloriesBurnedToday();
       final weeklyIntakeMap = _mealService.intakeByDay(start, today);
-      final weeklyBurnedMap = await _healthService.getCaloriesBurnedByDay(
+      final burnedMap = await _healthService.getCaloriesBurnedByDay(
         start,
         today,
       );
@@ -97,13 +96,16 @@ class _CalorieSummaryPageState extends State<CalorieSummaryPage>
         final day = start.add(Duration(days: i));
         final key = _formatDayKey(day);
         weeklyIntake += weeklyIntakeMap[key] ?? 0;
-        weeklyBurned += weeklyBurnedMap[key] ?? 0;
+        weeklyBurned += burnedMap[key] ?? 0;
       }
+
+      final todayKey = _formatDayKey(today);
+      final todayBurned = burnedMap[todayKey] ?? 0;
 
       if (!mounted) return;
       setState(() {
         _intake = intake;
-        _burned = burned;
+        _burned = todayBurned;
         _weeklyIntake = weeklyIntake;
         _weeklyBurned = weeklyBurned;
       });
