@@ -340,7 +340,6 @@ class WorkoutService {
     required String exerciseId,
     required String exerciseName,
     required List<ExerciseSetEntry> sets,
-    required bool targetMet,
     double? overrideMets, // optional per-session override
   }) async {
     if (sets.isEmpty) {
@@ -386,8 +385,9 @@ class WorkoutService {
     );
 
     // 3) Save local log
-    final avgReps = (totalReps / totalSets)
-        .ceil(); // preserve legacy per-set expectation
+    final avgReps = totalReps / totalSets;
+    final metTarget = avgReps >= state.expectedReps;
+    final overPerf = avgReps >= state.maxReps;
     final lastWeight = sets.last.weightKg;
     final log = wl.WorkoutLog(
       planId: plan.id,
@@ -395,19 +395,21 @@ class WorkoutService {
       expectedWeightKg: state.currentWeightKg,
       expectedReps: state.expectedReps,
       sets: totalSets,
-      achievedReps: avgReps,
-      targetMet: targetMet,
+      achievedReps: avgReps.ceil(),
+      targetMet: metTarget,
       energyKcal: energy,
       metsUsed: metsUsed, // record what we actually used
     );
     await _logBox.add(log);
 
+    String? driftWorkoutId;
     // 3b) Ensure Drift workout + log for analytics
     try {
       final driftWorkout = await driftRepository.ensureWorkoutForPlan(
         plan.id,
         name: plan.name,
       );
+      driftWorkoutId = driftWorkout.id;
       await driftRepository.logWorkout(
         workoutId: driftWorkout.id,
         exerciseId: state.exerciseId,
@@ -430,15 +432,42 @@ class WorkoutService {
 
     // 4) Update plan progression
     state.currentWeightKg = lastWeight;
-    if (targetMet && sets.last.reps >= state.maxReps) {
+    if (overPerf) {
+      state.currentWeightKg = lastWeight + (state.incrementKg * 2);
+      state.expectedReps = state.minReps;
+    } else if (metTarget) {
       state.currentWeightKg = lastWeight + state.incrementKg;
-      state.expectedReps = state.minReps; // reset to floor
+      state.expectedReps = state.minReps;
     } else {
-      // stay at same weight; nudge target reps upward (bounded)
-      final next = (state.expectedReps + 1)
-          .clamp(state.minReps, state.maxReps)
-          .toInt();
+      final next = (avgReps + 1).ceil().clamp(state.minReps, state.maxReps);
       state.expectedReps = next;
+    }
+
+    // 4b) Safety valve: deload after three consecutive sub-minimum sessions.
+    if (avgReps < state.minReps && driftWorkoutId != null) {
+      final shouldDeload = await _needsDeload(
+        workoutId: driftWorkoutId,
+        exerciseId: state.exerciseId,
+        minReps: state.minReps,
+      );
+      if (shouldDeload) {
+        state.currentWeightKg = (state.currentWeightKg * 0.9).clamp(
+          0,
+          double.infinity,
+        );
+        state.expectedReps = state.minReps;
+
+        final notificationId = 6000 + (state.exerciseId.hashCode & 0x7fffffff);
+        await NotificationService.showNow(
+          id: notificationId,
+          title: 'Deload activated',
+          body: 'Taking a deload week to recover.',
+        );
+        developer.log(
+          'Deload triggered for exercise ${state.exerciseId}',
+          name: 'WorkoutService',
+        );
+      }
     }
 
     if (plan.primaryExercise?.exerciseId == state.exerciseId ||
@@ -448,6 +477,30 @@ class WorkoutService {
     await plan.save();
 
     return log;
+  }
+
+  Future<bool> _needsDeload({
+    required String workoutId,
+    required String exerciseId,
+    required int minReps,
+  }) async {
+    final history = await driftRepository.getLogsForWorkout(workoutId);
+    final recent = history
+        .where(
+          (entry) =>
+              entry.exercise?.id == exerciseId ||
+              entry.log.exerciseId == exerciseId,
+        )
+        .take(3)
+        .toList();
+    if (recent.length < 3) return false;
+
+    return recent.every((entry) {
+      final setsLogged = entry.log.sets;
+      if (setsLogged <= 0) return true;
+      final avg = entry.log.reps / setsLogged;
+      return avg < minReps;
+    });
   }
 
   List<wl.WorkoutLog> getLogsForPlan(String planId) =>

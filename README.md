@@ -8,17 +8,19 @@ Progressive overload training companion that blends workout planning, nutrition 
 
 ## Overview
 - Build progressive overload workout plans that stay in sync with your primary exercises and target muscle groups.
-- Log sessions, track strength progression, and push workouts to Health Connect / Apple Health with automatic calorie estimates.
+- Log sessions, track strength progression, and push workouts to Health Connect / Apple Health with automatic calorie estimates and deload safeguards.
 - Monitor nutrition, activity, steps, and weight trends in a calendar view that highlights goal adherence.
+- Review step, sleep, and recent workout insights inside the Vitality Hub with freshness timestamps and friendly empty states.
 - Configure reminders, default training parameters, and theme preferences from the Targets hub.
 - Receive muscle inactivity notifications when targeted groups have not been trained within your defined window.
 
 ## Feature Highlights
 - **Dashboard:** Quick metrics, dark-mode toggle, inactivity alerts, and shortcuts into workout, nutrition, and analytics flows.
 - **Muscle-aware planning:** Create plans by selecting exercises and target muscle groups with automatic descendant selection and inactivity coverage checks.
-- **Session logging:** Progressive overload logic adjusts weight/reps, syncs data to Drift/Hive, and writes workouts + calories to Health data stores.
+- **Session logging:** Progressive overload logic adjusts weight/reps, syncs data to Drift/Hive, and writes workouts + calories to Health data stores. Automatic deloading kicks in after three under-target sessions to keep progression safe.
 - **Nutrition tracking:** Maintain reusable meal templates, log intake, and surface net calorie balances per day.
 - **Trends calendar:** Month view that blends calorie balance, workouts, steps, and weight alongside meal details.
+- **Vitality Hub:** Google Fit-style charts for steps, distance, and sleep, plus motivational next-session insights and “last updated” labels for Health data syncs.
 - **Targets & reminders:** Manage calorie deficit goals, daily step targets, weigh-in/workout reminders, and default progression settings.
 - **Health diagnostics:** Dedicated screen to test permissions, prompt rationale flows, and inspect Health Connect readiness.
 
@@ -30,7 +32,7 @@ Progressive overload training companion that blends workout planning, nutrition 
 - [ ] Rebuild automated test suite (unit, widget, and integration coverage)
 - [ ] Apple Health parity and publishing checklist
 - [ ] Cross-platform UI polish before expanding beyond Android
-- [ ] Containerize the project for consistent local tooling
+- [x] Containerize the project for consistent local tooling
 
 ## Tech Stack
 - Flutter (Material 3, Dart 3.8)
@@ -69,6 +71,14 @@ dart analyze
 flutter test
 ```
 Unit tests for Drift repositories and services live under `test/`. Add coverage alongside new features, especially when expanding workout progression or data access logic.
+
+## Containerized tooling
+Build a reproducible Flutter environment with Docker:
+```bash
+docker build -t fitness_app .
+docker run --rm -v "$PWD":/app -w /app fitness_app dart analyze
+docker run --rm -v "$PWD":/app -w /app fitness_app flutter test --concurrency 1
+```
 
 ## Health Data Integration
 
