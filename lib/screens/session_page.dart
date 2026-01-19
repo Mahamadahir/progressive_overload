@@ -7,7 +7,6 @@ import 'package:fitness_app/models/workout_plan.dart';
 import 'package:fitness_app/repositories/drift_repository.dart';
 
 import 'exercise_log_page.dart';
-import 'health_connect_diagnostics_page.dart';
 
 class SessionPage extends StatefulWidget {
   final String planId;
@@ -23,52 +22,13 @@ class _SessionPageState extends State<SessionPage> {
   final Map<String, LoggedExerciseSummary> _completedThisSession =
       <String, LoggedExerciseSummary>{};
 
-  bool _checkingPerms = true;
-  bool _authorized = true;
-  bool _authBusy = false;
-
   @override
   void initState() {
     super.initState();
     _plan = Hive.box<WorkoutPlan>('plans').get(widget.planId);
     Future.microtask(() async {
       await _syncPlanExercisesWithTargets();
-      await _checkPermissions();
     });
-  }
-
-  Future<void> _checkPermissions() async {
-    setState(() {
-      _checkingPerms = true;
-      _authorized = false;
-    });
-
-    try {
-      final ok = await HealthConnectDiagnosticsHelper.checkPermissionsPassive();
-      setState(() => _authorized = ok);
-    } catch (_) {
-      setState(() => _authorized = false);
-    } finally {
-      if (mounted) {
-        setState(() => _checkingPerms = false);
-      }
-    }
-  }
-
-  Future<void> _fixPermissions() async {
-    if (_authBusy) return;
-    setState(() => _authBusy = true);
-    try {
-      final ok =
-          await HealthConnectDiagnosticsHelper.requestPermissionsSerial();
-      if (mounted) {
-        setState(() => _authorized = ok);
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _authBusy = false);
-      }
-    }
   }
 
   Future<void> _syncPlanExercisesWithTargets() async {
@@ -140,16 +100,6 @@ class _SessionPageState extends State<SessionPage> {
     PlanExerciseState state,
     ExerciseDetail? detail,
   ) async {
-    if (!_authorized) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Health Connect permissions required to log.'),
-          ),
-        );
-      }
-      return;
-    }
     final summary = await Navigator.push<LoggedExerciseSummary>(
       context,
       MaterialPageRoute(
@@ -190,92 +140,47 @@ class _SessionPageState extends State<SessionPage> {
 
         return Scaffold(
           appBar: AppBar(title: Text(plan.name)),
-          body: _checkingPerms
-              ? const Center(child: CircularProgressIndicator())
-              : Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: ListView(
-                    children: [
-                      if (!_authorized) _buildPermissionBanner(),
-                      if (_completedThisSession.isNotEmpty)
-                        _buildCompletedSummaryCard(),
-                      StreamBuilder<List<MuscleGroupNode>>(
-                        stream: driftRepository.watchMuscleGroupsTree(),
-                        builder: (context, groupSnapshot) {
-                          final labels = _resolveTargetLabels(
-                            plan,
-                            groupSnapshot.data ?? const [],
-                          );
-                          if (labels.isEmpty) {
-                            return const SizedBox.shrink();
-                          }
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: Wrap(
-                              spacing: 8,
-                              runSpacing: 4,
-                              children: labels
-                                  .map((name) => Chip(label: Text(name)))
-                                  .toList(),
-                            ),
-                          );
-                        },
-                      ),
-                      _buildExercisesCard(
-                        context: context,
-                        plan: plan,
-                        incompleteStates: incompleteExercises,
-                        details: details,
-                      ),
-                      const SizedBox(height: 24),
-                      if (incompleteExercises.isEmpty)
-                        _buildAllDoneMessage(context),
-                    ],
-                  ),
-                ),
-        );
-      },
-    );
-  }
-
-  Widget _buildPermissionBanner() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.amber.shade200,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.warning_amber_rounded),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          body: Padding(
+            padding: const EdgeInsets.all(16),
+            child: ListView(
               children: [
-                const Text(
-                  'Health Connect permissions needed',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                if (_completedThisSession.isNotEmpty)
+                  _buildCompletedSummaryCard(),
+                StreamBuilder<List<MuscleGroupNode>>(
+                  stream: driftRepository.watchMuscleGroupsTree(),
+                  builder: (context, groupSnapshot) {
+                    final labels = _resolveTargetLabels(
+                      plan,
+                      groupSnapshot.data ?? const [],
+                    );
+                    if (labels.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: labels
+                            .map((name) => Chip(label: Text(name)))
+                            .toList(),
+                      ),
+                    );
+                  },
                 ),
-                const SizedBox(height: 4),
-                const Text('Tap Fix to request or re-enable permissions.'),
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton(
-                    onPressed: _authBusy ? null : _fixPermissions,
-                    child: _authBusy
-                        ? const Text('Requesting...')
-                        : const Text('Fix'),
-                  ),
+                _buildExercisesCard(
+                  context: context,
+                  plan: plan,
+                  incompleteStates: incompleteExercises,
+                  details: details,
                 ),
+                const SizedBox(height: 24),
+                if (incompleteExercises.isEmpty) _buildAllDoneMessage(context),
               ],
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

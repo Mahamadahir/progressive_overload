@@ -1,12 +1,36 @@
 // lib/services/health_service.dart
 import 'dart:async';
 import 'package:flutter/foundation.dart'; // for debugPrint
+import 'package:flutter/material.dart';
 import 'package:health/health.dart';
 import '../health_singleton.dart'; // shared singleton
 import 'package:hive/hive.dart';
 import 'health_history_permission.dart';
 
 class HealthService {
+  /// Unified list of Health Connect scopes the app depends on.
+  static const List<HealthDataType> _priorityTypes = [
+    HealthDataType.WORKOUT,
+    HealthDataType.TOTAL_CALORIES_BURNED,
+    HealthDataType.STEPS,
+    HealthDataType.DISTANCE_DELTA,
+    HealthDataType.SLEEP_SESSION,
+    HealthDataType.SLEEP_ASLEEP,
+    HealthDataType.SLEEP_IN_BED,
+    HealthDataType.WEIGHT,
+  ];
+
+  static const List<HealthDataAccess> _priorityPermissions = [
+    HealthDataAccess.READ_WRITE, // workouts
+    HealthDataAccess.READ_WRITE, // calories
+    HealthDataAccess.READ, // steps
+    HealthDataAccess.READ, // distance
+    HealthDataAccess.READ_WRITE, // sleep session
+    HealthDataAccess.READ_WRITE, // sleep stages
+    HealthDataAccess.READ_WRITE, // sleep in bed
+    HealthDataAccess.READ, // weight
+  ];
+
   /// Global mutex to serialize *all* permission prompts across the app.
   static Completer<void>? _authMutex;
 
@@ -88,6 +112,34 @@ class HealthService {
     });
   }
 
+  /// Request all prioritized Health Connect scopes at once.
+  static Future<bool> requestAllPrioritizedPermissions() async {
+    await health.configure();
+    return _inAuthCriticalSection<bool>(() async {
+      final has =
+          await health.hasPermissions(
+            _priorityTypes,
+            permissions: _priorityPermissions,
+          ) ??
+          false;
+      if (has) return true;
+      return await health.requestAuthorization(
+        _priorityTypes,
+        permissions: _priorityPermissions,
+      );
+    });
+  }
+
+  /// Quick check without prompting.
+  static Future<bool> hasAllPrioritizedPermissions() async {
+    await health.configure();
+    return await health.hasPermissions(
+          _priorityTypes,
+          permissions: _priorityPermissions,
+        ) ??
+        false;
+  }
+
   /// Save a strength exercise record (writes workout + total kcal).
   static Future<bool> writeStrengthWorkout({
     required DateTime start,
@@ -107,6 +159,45 @@ class HealthService {
       totalEnergyBurned: energyKcal.round(), // kcal (int)
       title: title,
     );
+  }
+
+  /// Centralized readiness check for workout logging and calorie sync.
+  /// Shows user feedback on failure and returns true when all required scopes are granted.
+  static Future<bool> ensureWorkoutAccess(BuildContext context) async {
+    try {
+      final okWrite = await ensureWorkoutWritePermissions();
+      if (!okWrite) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Health permissions needed to log workouts and calories.',
+            ),
+          ),
+        );
+        return false;
+      }
+
+      final okWeight = await ensureAuthorized(
+        types: const [HealthDataType.WEIGHT],
+        permissions: const [HealthDataAccess.READ],
+      );
+      if (!okWeight) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Weight read permission is required to log.'),
+          ),
+        );
+        return false;
+      }
+      return true;
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Health check failed: $e')));
+      }
+      return false;
+    }
   }
 
   /// Calories burned per day in [start, end] using TOTAL_CALORIES_BURNED, keyed by YYYY-MM-DD (local).
@@ -240,6 +331,57 @@ class HealthService {
         (x) => x + v.numericValue.toDouble(),
         ifAbsent: () => v.numericValue.toDouble(),
       );
+    }
+    return out;
+  }
+
+  /// Sleep durations per day (minutes slept summed per calendar day).
+  Future<Map<String, Duration>> getSleepByDay(
+    DateTime start,
+    DateTime end,
+  ) async {
+    await health.configure();
+    const types = [
+      HealthDataType.SLEEP_SESSION,
+      HealthDataType.SLEEP_ASLEEP,
+      HealthDataType.SLEEP_IN_BED,
+    ];
+    const perms = [
+      HealthDataAccess.READ,
+      HealthDataAccess.READ,
+      HealthDataAccess.READ,
+    ];
+
+    final ok = await ensureAuthorized(types: types, permissions: perms);
+    if (!ok) return {};
+
+    final startDay = DateTime(start.year, start.month, start.day);
+    final endDay = DateTime(end.year, end.month, end.day, 23, 59, 59);
+    final points = await health.getHealthDataFromTypes(
+      startTime: startDay,
+      endTime: endDay,
+      types: types,
+    );
+
+    final out = <String, Duration>{};
+    for (final dp in points) {
+      var segStart = dp.dateFrom;
+      final segEnd = dp.dateTo;
+      while (!segStart.isAfter(segEnd)) {
+        final dayEnd = DateTime(
+          segStart.year,
+          segStart.month,
+          segStart.day,
+        ).add(const Duration(days: 1));
+        final boundary = segEnd.isBefore(dayEnd) ? segEnd : dayEnd;
+        final delta = boundary.difference(segStart);
+        final key = _yyyyMmDd(segStart);
+        if (delta.inMinutes > 0) {
+          out.update(key, (v) => v + delta, ifAbsent: () => delta);
+        }
+        if (boundary.isAtSameMomentAs(segEnd)) break;
+        segStart = boundary;
+      }
     }
     return out;
   }

@@ -7,7 +7,6 @@ import 'package:fitness_app/database/database_provider.dart';
 import 'package:fitness_app/models/workout_plan.dart';
 import 'package:fitness_app/repositories/drift_repository.dart';
 import 'package:fitness_app/services/workout_service.dart';
-import 'health_connect_diagnostics_page.dart';
 
 class LoggedExerciseSummary {
   final String exerciseId;
@@ -59,14 +58,10 @@ class _ExerciseLogPageState extends State<ExerciseLogPage> {
   final List<ExerciseSetEntry> _recordedSets = <ExerciseSetEntry>[];
   bool _setCountLocked = false;
   int _plannedSetCount = 3;
-  bool _targetMet = false;
   double? _overrideMets;
   bool _saving = false;
   String? _result;
-
-  bool _checkingPerms = true;
-  bool _authorized = true;
-  bool _authBusy = false;
+  bool _loaded = false;
 
   int _restTimerSeconds = 180;
 
@@ -83,6 +78,7 @@ class _ExerciseLogPageState extends State<ExerciseLogPage> {
         _result = 'Workout not found.';
         _plan = null;
         _state = null;
+        _loaded = true;
       });
       return;
     }
@@ -106,49 +102,8 @@ class _ExerciseLogPageState extends State<ExerciseLogPage> {
       _weightCtrl.text = state.currentWeightKg.toStringAsFixed(1);
       _repsCtrl.text = state.expectedReps.toString();
       _restTimerSeconds = restSeconds;
+      _loaded = true;
     });
-
-    await _checkPermissions();
-  }
-
-  Future<void> _checkPermissions() async {
-    setState(() {
-      _checkingPerms = true;
-      _authorized = false;
-    });
-
-    try {
-      final ok = await HealthConnectDiagnosticsHelper.checkPermissionsPassive();
-      setState(() {
-        _authorized = ok;
-      });
-    } catch (_) {
-      setState(() {
-        _authorized = false;
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _checkingPerms = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _fixPermissions() async {
-    if (_authBusy) return;
-    setState(() => _authBusy = true);
-    try {
-      final ok =
-          await HealthConnectDiagnosticsHelper.requestPermissionsSerial();
-      if (mounted) {
-        setState(() => _authorized = ok);
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _authBusy = false);
-      }
-    }
   }
 
   @override
@@ -235,7 +190,6 @@ class _ExerciseLogPageState extends State<ExerciseLogPage> {
         exerciseId: state.exerciseId,
         exerciseName: _detail?.exercise.name ?? 'Exercise',
         sets: setsToLog,
-        targetMet: _targetMet,
         overrideMets: _overrideMets,
       );
       final refreshedPlan = Hive.box<WorkoutPlan>('plans').get(plan.id)!;
@@ -244,7 +198,7 @@ class _ExerciseLogPageState extends State<ExerciseLogPage> {
         exerciseName: _detail?.exercise.name ?? 'Exercise',
         workoutName: refreshedPlan.name,
         sets: setsToLog,
-        targetMet: _targetMet,
+        targetMet: log.targetMet,
         energyKcal: log.energyKcal,
         loggedAt: log.date,
         metsUsed: log.metsUsed,
@@ -272,13 +226,14 @@ class _ExerciseLogPageState extends State<ExerciseLogPage> {
 
     return Scaffold(
       appBar: AppBar(title: Text('Log $exerciseName')),
-      body: state == null || _checkingPerms
+      body: !_loaded
           ? const Center(child: CircularProgressIndicator())
+          : state == null
+          ? Center(child: Text(_result ?? 'Workout not found.'))
           : Padding(
               padding: const EdgeInsets.all(16),
               child: ListView(
                 children: [
-                  if (!_authorized) _buildPermissionBanner(),
                   if (groupNames.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
@@ -333,22 +288,6 @@ class _ExerciseLogPageState extends State<ExerciseLogPage> {
                     decoration: const InputDecoration(
                       labelText: 'Reps for this set',
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Did you meet your target?'),
-                    value: _targetMet,
-                    onChanged: _saving
-                        ? null
-                        : (v) {
-                            setState(() {
-                              _targetMet = v;
-                              if (v && _recordedSets.isEmpty) {
-                                _repsCtrl.text = state.expectedReps.toString();
-                              }
-                            });
-                          },
                   ),
                   const SizedBox(height: 12),
                   const Text('Intensity override (optional)'),
@@ -417,47 +356,6 @@ class _ExerciseLogPageState extends State<ExerciseLogPage> {
             : (_) => setState(() => _overrideMets = value),
       );
     }).toList();
-  }
-
-  Widget _buildPermissionBanner() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.amber.shade200,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.warning_amber_rounded),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Health Connect permissions needed',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 4),
-                const Text('Tap Fix to request or re-enable permissions.'),
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton(
-                    onPressed: _authBusy ? null : _fixPermissions,
-                    child: _authBusy
-                        ? const Text('Requesting...')
-                        : const Text('Fix'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 

@@ -32,10 +32,15 @@ class _VitalityHubPageState extends State<VitalityHubPage> {
     final now = DateTime.now();
     final start = now.subtract(const Duration(days: 6));
 
-    final steps = await _health.getStepsByDayCached(start, now);
-    final sleep = await _health.getSleepByDay(start, now);
-    final logs = await _repository.getRecentWorkoutLogs(limit: 5);
+    final hasPerms = await HealthService.hasAllPrioritizedPermissions();
     final plans = _workouts.getPlans();
+    final logs = await _repository.getRecentWorkoutLogs(limit: 5);
+    Map<String, int> steps = const {};
+    Map<String, Duration> sleep = const {};
+    if (hasPerms) {
+      steps = await _health.getStepsByDayCached(start, now);
+      sleep = await _health.getSleepByDay(start, now);
+    }
     final fetchedAt = DateTime.now();
 
     return _VitalityData(
@@ -44,6 +49,7 @@ class _VitalityHubPageState extends State<VitalityHubPage> {
       recentWorkouts: logs,
       plans: plans,
       fetchedAt: fetchedAt,
+      hasPermissions: hasPerms,
     );
   }
 
@@ -95,6 +101,8 @@ class _VitalityHubPageState extends State<VitalityHubPage> {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              if (!data.hasPermissions)
+                _PermissionBanner(onRequest: _requestPermissions),
               _LastUpdatedLabel(timestamp: data.fetchedAt),
               const SizedBox(height: 8),
               _NextSessionCard(
@@ -115,6 +123,15 @@ class _VitalityHubPageState extends State<VitalityHubPage> {
         },
       ),
     );
+  }
+
+  Future<void> _requestPermissions() async {
+    await HealthService.requestAllPrioritizedPermissions();
+    if (mounted) {
+      setState(() {
+        _future = _load();
+      });
+    }
   }
 }
 
@@ -459,6 +476,7 @@ class _VitalityData {
   final List recentWorkouts;
   final List plans;
   final DateTime fetchedAt;
+  final bool hasPermissions;
 
   _VitalityData({
     required this.stepsByDay,
@@ -466,6 +484,7 @@ class _VitalityData {
     required this.recentWorkouts,
     required this.plans,
     required this.fetchedAt,
+    required this.hasPermissions,
   });
 }
 
@@ -494,6 +513,40 @@ class _LastUpdatedLabel extends StatelessWidget {
           style: theme.textTheme.bodySmall,
         ),
       ],
+    );
+  }
+}
+
+class _PermissionBanner extends StatelessWidget {
+  final Future<void> Function() onRequest;
+  const _PermissionBanner({required this.onRequest});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      color: theme.colorScheme.errorContainer,
+      child: ListTile(
+        leading: Icon(Icons.shield, color: theme.colorScheme.onErrorContainer),
+        title: Text(
+          'Health permissions needed',
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: theme.colorScheme.onErrorContainer,
+          ),
+        ),
+        subtitle: Text(
+          'Enable Health Connect to show steps, distance, sleep, and calorie trends.',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onErrorContainer,
+          ),
+        ),
+        trailing: FilledButton.tonal(
+          onPressed: () {
+            onRequest();
+          },
+          child: const Text('Grant'),
+        ),
+      ),
     );
   }
 }

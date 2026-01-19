@@ -32,6 +32,10 @@
     <uses-permission android:name="android.permission.health.READ_STEPS" />
     <!-- <uses-permission android:name="android.permission.health.WRITE_STEPS" /> -->
 
+    <!-- Sleep -->
+    <uses-permission android:name="android.permission.health.READ_SLEEP" />
+    <uses-permission android:name="android.permission.health.WRITE_SLEEP" />
+
     <!-- Optional extras (uncomment only if used) -->
     
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />

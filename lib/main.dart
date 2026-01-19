@@ -8,12 +8,18 @@ import 'models/meal_log.dart' show MealLog, MealLogAdapter;
 import 'models/food_component.dart';
 import 'models/meal_component_line.dart'; // provides both line + snapshot
 import 'models/calorie_entry.dart';
-import 'models/workout_plan.dart' show PlanExerciseState, PlanExerciseStateAdapter, WorkoutPlan, WorkoutPlanAdapter; // scoped
-import 'models/workout_log.dart' show WorkoutLog, WorkoutLogAdapter;     // scoped
+import 'models/workout_plan.dart'
+    show
+        PlanExerciseState,
+        PlanExerciseStateAdapter,
+        WorkoutPlan,
+        WorkoutPlanAdapter; // scoped
+import 'models/workout_log.dart' show WorkoutLog, WorkoutLogAdapter; // scoped
 
 // Services
 import 'services/notification_service.dart';
 import 'services/meal_service.dart';
+import 'services/health_service.dart';
 
 // App + Health
 import 'app.dart';
@@ -35,6 +41,7 @@ class _HealthBootstrapperState extends State<HealthBootstrapper> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
         await health.configure();
+        await HealthService.requestAllPrioritizedPermissions();
         final status = await health.getHealthConnectSdkStatus();
         debugPrint('HC status: $status');
       } catch (e, st) {
@@ -63,7 +70,7 @@ Future<void> bootstrap() async {
   registerAdapterSafely<CalorieEntry>(CalorieEntryAdapter());
   registerAdapterSafely<PlanExerciseState>(PlanExerciseStateAdapter());
   registerAdapterSafely<WorkoutPlan>(WorkoutPlanAdapter());
-  registerAdapterSafely<WorkoutLog>(WorkoutLogAdapter());        // NEW
+  registerAdapterSafely<WorkoutLog>(WorkoutLogAdapter()); // NEW
   registerAdapterSafely<MealTemplate>(MealTemplateAdapter());
   registerAdapterSafely<MealLog>(MealLogAdapter());
   registerAdapterSafely<FoodComponent>(FoodComponentAdapter());
@@ -97,11 +104,5 @@ void main() async {
     debugPrint('Bootstrap error: $e\n$st');
   }
 
-  runApp(
-    HealthBootstrapper(
-      child: const App(),
-    ),
-  );
+  runApp(HealthBootstrapper(child: const App()));
 }
-
-
