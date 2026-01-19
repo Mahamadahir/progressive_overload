@@ -1,0 +1,14 @@
+version: "3.9"
+services:
+  flutter:
+    build: .
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      - FLUTTER_HOME=/opt/flutter
+      - ANDROID_SDK_ROOT=/opt/android-sdk
+      - JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+      - PATH=/opt/flutter/bin:/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools:/opt/android-sdk/emulator:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    tty: true
+    command: bash -lc "flutter pub get && dart test || flutter test --concurrency 1"
