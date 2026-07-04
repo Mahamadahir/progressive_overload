@@ -70,7 +70,7 @@ Specify a device with `-d <device-id>` if multiple simulators/emulators are avai
 dart analyze
 flutter test
 ```
-Unit tests for Drift repositories and services live under `test/`. Add coverage alongside new features, especially when expanding workout progression or data access logic.
+> **Testing status: no effective coverage yet.** The `test/` tree currently holds placeholder scaffolds only. Every test is marked `skip:` with a `TODO` body, so `flutter test` reports green while asserting nothing. Rebuilding this suite is the top open task, see [Testing](#testing) and the roadmap.
 
 ## Containerized tooling
 Build a reproducible Flutter environment with Docker:
@@ -113,7 +113,16 @@ Permissions are requested at runtime. Accept workout, calorie, step, and weight 
 - `lib/database/`: Drift database, DAOs, and schema definitions (generated code in `app_database.g.dart`).
 - `lib/models/`: Hive type adapters and serializable models.
 - `android/` / `ios/`: Platform integrations, including Health Connect permission bridge (see `MainActivity.kt`).
-- `test/`: Unit tests for Drift repositories and services.
+- `test/`: Test tree. Currently placeholder scaffolds only, see [Testing](#testing).
+
+## Testing
+The automated suite is not built yet. Every file under `test/` is a generated scaffold whose single test is marked `skip:` with a `TODO`, so the suite passes without exercising any code. Treat coverage as zero until this is rebuilt.
+
+Rebuild plan, in priority order:
+1. **Repositories and services first.** Start with `DriftRepository` (`test/repositories/drift_repository_test.dart` already has an in-memory `AppDatabase.forTesting` fixture ready to use), then `WorkoutService`, `MealService`, and `HealthService`. These hold the business logic and are the highest-value coverage.
+2. **Models.** Test hand-written behaviour only. Delete the `*.g_test.dart` files, there is no value in testing generated Hive/Drift adapters.
+3. **Widget tests** for the key screens (dashboard, session logging, log calories) using `pumpWidget` with seeded in-memory stores.
+4. Remove every `skip:` as its test is implemented, and wire `flutter test` into CI so a green run means something.
 
 ## Troubleshooting
 - **Health permissions keep failing:** Open Health Connect manually, revoke the app, then relaunch and request permissions from the Diagnostics screen.
