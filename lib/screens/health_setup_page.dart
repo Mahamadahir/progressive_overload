@@ -83,30 +83,90 @@ class _HealthSetupPageState extends State<HealthSetupPage> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    const synced = [
+      ('Workouts', Icons.fitness_center),
+      ('Calories burned', Icons.local_fire_department),
+      ('Steps', Icons.directions_walk),
+      ('Weight', Icons.monitor_weight),
+    ];
+
     return Scaffold(
-      appBar: AppBar(title: const Text("Health Connect Setup")),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ElevatedButton(
-              onPressed: _busy ? null : _ensureHealthConnectAndAuthorize,
-              child: Text(_busy ? "Working…" : "Connect to Health Data"),
-            ),
-            if (_result != null) ...[
-              const SizedBox(height: 12),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(_result!, textAlign: TextAlign.center),
+      appBar: AppBar(title: const Text('Health Connect Setup')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+        children: [
+          Center(
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: scheme.primaryContainer,
+                shape: BoxShape.circle,
               ),
-            ],
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, '/calories'),
-              child: const Text("View Calorie Burn"),
+              child: Icon(
+                Icons.health_and_safety,
+                size: 56,
+                color: scheme.onPrimaryContainer,
+              ),
             ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Connect your health data',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.headlineSmall
+                ?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Sync workouts and calories to Health Connect, and read steps '
+            'and weight to power your trends.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 24),
+          Card(
+            child: Column(
+              children: [
+                for (final (label, icon) in synced) ...[
+                  ListTile(
+                    leading: Icon(icon, color: scheme.primary),
+                    title: Text(label),
+                    trailing: Icon(Icons.check_circle_outline,
+                        color: scheme.onSurfaceVariant),
+                  ),
+                  if (label != synced.last.$1) const Divider(height: 1),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            onPressed: _busy ? null : _ensureHealthConnectAndAuthorize,
+            icon: _busy
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.link),
+            label: Text(_busy ? 'Working…' : 'Connect to Health Data'),
+          ),
+          if (_result != null) ...[
+            const SizedBox(height: 16),
+            Text(_result!, textAlign: TextAlign.center),
           ],
-        ),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const HealthConnectDiagnosticsPage(),
+              ),
+            ),
+            child: const Text('Open diagnostics'),
+          ),
+        ],
       ),
     );
   }
