@@ -75,18 +75,15 @@ class _WorkoutHistoryPageState extends State<WorkoutHistoryPage> {
           : _error != null
           ? Center(child: Text('Error: $_error'))
           : _entries.isEmpty
-          ? Center(
-              child: Text(
-                'No workouts logged in the last ${_historySpan.inDays} days.',
-              ),
-            )
+          ? _EmptyHistory(days: _historySpan.inDays)
           : RefreshIndicator(
               onRefresh: _load,
-              child: ListView.separated(
+              child: ListView.builder(
                 physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                 itemCount: _entries.length,
-                separatorBuilder: (context, _) => const Divider(height: 0),
                 itemBuilder: (context, index) {
+                  final scheme = Theme.of(context).colorScheme;
                   final entry = _entries[index];
                   final log = entry.log;
                   final performedAt = DateTime.fromMillisecondsSinceEpoch(
@@ -100,29 +97,95 @@ class _WorkoutHistoryPageState extends State<WorkoutHistoryPage> {
 
                   final summaryParts = <String>[
                     '${log.sets} sets',
-                    '${log.reps} reps total',
+                    '${log.reps} reps',
                     if (log.weightKg != null)
                       '${log.weightKg!.toStringAsFixed(1)} kg',
-                    '${log.energyKcal.toStringAsFixed(1)} kcal',
-                    '${log.metsUsed.toStringAsFixed(1)} METs',
+                    '${log.energyKcal.toStringAsFixed(0)} kcal',
                   ];
 
-                  final subtitleLines = <String>[
-                    '${_formatDateTime(performedAt)}'
-                        '${workoutName == null ? '' : ' • $workoutName'}',
-                    summaryParts.join(' • '),
-                    if (groupLabel != null) 'Targets: $groupLabel',
-                  ];
-
-                  return ListTile(
-                    leading: const Icon(Icons.fitness_center),
-                    title: Text(exerciseName),
-                    subtitle: Text(subtitleLines.join('\n')),
-                    isThreeLine: true,
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          CircleAvatar(
+                            backgroundColor: scheme.primaryContainer,
+                            foregroundColor: scheme.onPrimaryContainer,
+                            child: const Icon(Icons.fitness_center, size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  exerciseName,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w600),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${_formatDateTime(performedAt)}'
+                                  '${workoutName == null ? '' : ' • $workoutName'}',
+                                  style: TextStyle(
+                                    color: scheme.onSurfaceVariant,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  summaryParts.join('  •  '),
+                                  style: TextStyle(color: scheme.primary),
+                                ),
+                                if (groupLabel != null) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Targets: $groupLabel',
+                                    style: TextStyle(
+                                      color: scheme.onSurfaceVariant,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   );
                 },
               ),
             ),
+    );
+  }
+}
+
+class _EmptyHistory extends StatelessWidget {
+  final int days;
+  const _EmptyHistory({required this.days});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.history, size: 56, color: scheme.primary),
+          const SizedBox(height: 12),
+          const Text('No workouts yet'),
+          const SizedBox(height: 4),
+          Text(
+            'Nothing logged in the last $days days.',
+            style: TextStyle(color: scheme.onSurfaceVariant),
+          ),
+        ],
+      ),
     );
   }
 }

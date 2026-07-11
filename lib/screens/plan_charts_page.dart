@@ -24,6 +24,7 @@ class _PlanChartsPageState extends State<PlanChartsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final logs = service.getLogsForPlan(plan.id).reversed.toList(); // oldest -> newest
     final spotsWeight = <FlSpot>[];
     final spotsReps = <FlSpot>[];
@@ -52,9 +53,18 @@ class _PlanChartsPageState extends State<PlanChartsPage> {
                 Expanded(
                   child: LineChart(
                     LineChartData(
-                      gridData: FlGridData(show: true),
-                      borderData: FlBorderData(show: true),
+                      gridData: FlGridData(
+                        show: true,
+                        drawVerticalLine: false,
+                        getDrawingHorizontalLine: (_) => FlLine(
+                          color: scheme.outlineVariant.withValues(alpha: 0.3),
+                          strokeWidth: 1,
+                        ),
+                      ),
+                      borderData: FlBorderData(show: false),
                       titlesData: FlTitlesData(
+                        topTitles: const AxisTitles(),
+                        rightTitles: const AxisTitles(),
                         leftTitles: AxisTitles(
                           sideTitles: SideTitles(
                             showTitles: true,
@@ -75,8 +85,13 @@ class _PlanChartsPageState extends State<PlanChartsPage> {
                         LineChartBarData(
                           spots: spots,
                           isCurved: true,
-                          barWidth: 2,
+                          barWidth: 3,
+                          color: scheme.primary,
                           dotData: FlDotData(show: false),
+                          belowBarData: BarAreaData(
+                            show: true,
+                            color: scheme.primary.withValues(alpha: 0.12),
+                          ),
                         ),
                       ],
                     ),
