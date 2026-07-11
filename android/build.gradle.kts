@@ -1,6 +1,7 @@
 // android/build.gradle.kts (PROJECT-level) - safe evaluation-time compileSdk settings
 import com.android.build.api.dsl.ApplicationExtension
 import com.android.build.api.dsl.LibraryExtension
+import com.android.build.api.variant.LibraryAndroidComponentsExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 
 allprojects {
@@ -44,13 +45,13 @@ subprojects {
         }
     }
 
-    // Configure library modules (plugins) at evaluation time
+    // Configure library modules (plugins). A plugin's own android block sets
+    // compileSdk during evaluation and can pin it to an old level (health 13.1.4
+    // hardcodes 34, which its connect-client dependency rejects). finalizeDsl
+    // runs after the module's DSL is configured but before it locks, so the
+    // override wins where an evaluation-time or afterEvaluate set cannot.
     plugins.withId("com.android.library") {
         extensions.findByType(LibraryExtension::class.java)?.let { ext ->
-            // Set compileSdk for library modules (evaluation-time, safe)
-            @Suppress("UnstableApiUsage")
-            ext.compileSdk = 36
-
             // Fallback namespace for libs that forgot to set it (helps with AGP 8+)
             if (ext.namespace.isNullOrBlank()) {
                 val manifest = file("src/main/AndroidManifest.xml")
@@ -61,6 +62,12 @@ subprojects {
                 println("Applied fallback namespace '${ext.namespace}' to module '${project.path}'")
             }
         }
+
+        extensions.findByType(LibraryAndroidComponentsExtension::class.java)
+            ?.finalizeDsl { ext ->
+                @Suppress("UnstableApiUsage")
+                ext.compileSdk = 36
+            }
     }
 
     plugins.withId("org.jetbrains.kotlin.android") {
