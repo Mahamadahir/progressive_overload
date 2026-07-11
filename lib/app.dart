@@ -10,48 +10,64 @@ import 'screens/create_workout_page.dart';
 import 'screens/session_page.dart';
 import 'screens/targets_page.dart';
 // NEW pages
-import 'screens/dashboard_page.dart';
 import 'screens/plan_detail_page.dart';
 import 'screens/plan_charts_page.dart';
 import 'screens/exercise_list_page.dart';
 import 'screens/create_exercise_page.dart';
+import 'home_shell.dart';
 import 'theme_controller.dart';
+
+/// Brand amber from the design system. Drives the Material 3 colour scheme.
+const Color _brandAmber = Color(0xFFF57C00);
 
 class App extends StatelessWidget {
   const App({super.key});
 
   @visibleForTesting
   ThemeData buildLightTheme() {
-    return ThemeData(
+    final scheme = ColorScheme.fromSeed(
+      seedColor: _brandAmber,
       brightness: Brightness.light,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: Colors.blue,
-        brightness: Brightness.light,
-      ),
-      iconTheme: const IconThemeData(color: Colors.blueAccent),
-      useMaterial3: true,
-    );
+    ).copyWith(primary: _brandAmber);
+    return _themeFrom(scheme, const Color(0xFFFDF8F5));
   }
 
   @visibleForTesting
   ThemeData buildDarkTheme() {
-    return ThemeData(
+    final scheme = ColorScheme.fromSeed(
+      seedColor: _brandAmber,
       brightness: Brightness.dark,
-      scaffoldBackgroundColor: Colors.black,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: Colors.blueAccent,
-        brightness: Brightness.dark,
-      ).copyWith(surface: Colors.black, surfaceTint: Colors.transparent),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-      ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: Colors.blueAccent,
-        foregroundColor: Colors.black,
-      ),
-      iconTheme: const IconThemeData(color: Colors.blueAccent),
+    ).copyWith(primary: _brandAmber, surfaceTint: Colors.transparent);
+    return _themeFrom(scheme, const Color(0xFF131313));
+  }
+
+  ThemeData _themeFrom(ColorScheme scheme, Color scaffold) {
+    return ThemeData(
       useMaterial3: true,
+      colorScheme: scheme,
+      scaffoldBackgroundColor: scaffold,
+      appBarTheme: AppBarTheme(
+        backgroundColor: scaffold,
+        foregroundColor: scheme.onSurface,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+      ),
+      cardTheme: CardThemeData(
+        elevation: 0,
+        color: scheme.surface,
+        surfaceTintColor: Colors.transparent,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          shape: const StadiumBorder(),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        ),
+      ),
     );
   }
 
@@ -108,7 +124,7 @@ class App extends StatelessWidget {
           themeMode: themeController.mode,
           theme: buildLightTheme(),
           darkTheme: buildDarkTheme(),
-          home: const DashboardPage(),
+          home: const HomeShell(),
           routes: buildRoutes(),
           onGenerateRoute: handleGeneratedRoute,
         );
