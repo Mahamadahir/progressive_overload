@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fitness_app/models/workout_log.dart';
 
 void main() {
   group('models/workout_log.dart', () {

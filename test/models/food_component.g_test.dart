@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fitness_app/models/food_component.dart';
 
 void main() {
   group('models/food_component.g.dart', () {

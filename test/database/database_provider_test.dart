@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fitness_app/database/database_provider.dart';
 
 void main() {
   group('database/database_provider.dart', () {

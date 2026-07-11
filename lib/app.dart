@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:meta/meta.dart';
 
 // Existing pages
 import 'screens/calorie_summary_page.dart';

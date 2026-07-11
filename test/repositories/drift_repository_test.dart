@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fitness_app/database/app_database.dart';
 import 'package:fitness_app/database/database_provider.dart';
-import 'package:fitness_app/repositories/drift_repository.dart';
 
 void main() {
   group('DriftRepository', () {

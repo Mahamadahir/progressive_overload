@@ -444,7 +444,7 @@ class WorkoutService {
     }
 
     // 4b) Safety valve: deload after three consecutive sub-minimum sessions.
-    if (avgReps < state.minReps && driftWorkoutId != null) {
+    if (avgReps < state.minReps) {
       final shouldDeload = await _needsDeload(
         workoutId: driftWorkoutId,
         exerciseId: state.exerciseId,

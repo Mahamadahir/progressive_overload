@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:health/health.dart';
 import '../health_singleton.dart'; // shared singleton
 import 'package:hive/hive.dart';
-import 'health_history_permission.dart';
 
 class HealthService {
   /// Unified list of Health Connect scopes the app depends on.

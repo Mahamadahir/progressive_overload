@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fitness_app/theme_controller.dart';
 
 void main() {
   group('theme_controller.dart', () {
