@@ -9,6 +9,7 @@ import 'screens/plan_list_page.dart';
 import 'screens/create_workout_page.dart';
 import 'screens/session_page.dart';
 import 'screens/targets_page.dart';
+import 'screens/settings_page.dart';
 // NEW pages
 import 'screens/plan_detail_page.dart';
 import 'screens/plan_charts_page.dart';
@@ -84,8 +85,8 @@ class App extends StatelessWidget {
       '/create_plan': (context) => const CreateWorkoutPage(),
       '/exercises': (context) => const ExerciseListPage(),
       '/exercises/new': (context) => const CreateExercisePage(),
-      // Settings renamed to Targets.
-      '/settings': (context) => const TargetsPage(),
+      '/settings': (context) => const SettingsPage(),
+      '/targets': (context) => const TargetsPage(),
     };
   }
 

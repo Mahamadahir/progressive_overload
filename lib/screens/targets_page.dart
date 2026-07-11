@@ -3,7 +3,6 @@ import 'package:hive/hive.dart';
 import 'package:fitness_app/database/app_database.dart';
 import 'package:fitness_app/database/database_provider.dart';
 import 'package:fitness_app/repositories/drift_repository.dart';
-import '../services/notification_service.dart';
 
 class TargetsPage extends StatefulWidget {
   const TargetsPage({super.key});
@@ -18,13 +17,6 @@ class _TargetsPageState extends State<TargetsPage> {
   // Targets
   double targetNetLossKcal = 500;
   int stepsGoal = 8000; // NEW: steps goal
-
-  // Reminders
-  bool weighInEnabled = false;
-  TimeOfDay weighInTime = const TimeOfDay(hour: 7, minute: 0);
-
-  bool workoutEnabled = false;
-  TimeOfDay workoutTime = const TimeOfDay(hour: 18, minute: 0);
 
   // Defaults
   double defaultMets = 3.0;
@@ -265,17 +257,6 @@ class _TargetsPageState extends State<TargetsPage> {
             .toDouble();
     stepsGoal = settings.get('steps_goal', defaultValue: 8000) as int; // NEW
 
-    // Reminders
-    weighInEnabled = settings.get('weighInEnabled', defaultValue: false);
-    final wtH = settings.get('weighInHour', defaultValue: 7);
-    final wtM = settings.get('weighInMinute', defaultValue: 0);
-    weighInTime = TimeOfDay(hour: wtH, minute: wtM);
-
-    workoutEnabled = settings.get('workoutEnabled', defaultValue: false);
-    final woH = settings.get('workoutHour', defaultValue: 18);
-    final woM = settings.get('workoutMinute', defaultValue: 0);
-    workoutTime = TimeOfDay(hour: woH, minute: woM);
-
     // Defaults
     defaultMets = (settings.get('defaultMets', defaultValue: 3.0) as num)
         .toDouble();
@@ -289,32 +270,10 @@ class _TargetsPageState extends State<TargetsPage> {
     setState(() {});
   }
 
-  Future<void> _pickTime(bool isWeighIn) async {
-    final current = isWeighIn ? weighInTime : workoutTime;
-    final picked = await showTimePicker(context: context, initialTime: current);
-    if (picked == null) return;
-    setState(() {
-      if (isWeighIn) {
-        weighInTime = picked;
-      } else {
-        workoutTime = picked;
-      }
-    });
-  }
-
   Future<void> _save() async {
     // Targets
     await settings.put('target_net_loss_kcal', targetNetLossKcal);
     await settings.put('steps_goal', stepsGoal); // NEW
-
-    // Reminders
-    await settings.put('weighInEnabled', weighInEnabled);
-    await settings.put('weighInHour', weighInTime.hour);
-    await settings.put('weighInMinute', weighInTime.minute);
-
-    await settings.put('workoutEnabled', workoutEnabled);
-    await settings.put('workoutHour', workoutTime.hour);
-    await settings.put('workoutMinute', workoutTime.minute);
 
     // Defaults
     await settings.put('defaultMets', defaultMets);
@@ -322,28 +281,6 @@ class _TargetsPageState extends State<TargetsPage> {
     await settings.put('defaultMaxReps', defaultMax);
     await settings.put('defaultIncKg', defaultIncKg);
     await settings.put('rest_timer_seconds', restTimerSeconds);
-
-    // Notifications
-    if (weighInEnabled) {
-      await NotificationService.scheduleDaily(
-        id: 1001,
-        title: 'Morning weigh-in',
-        body: 'Log your weight (pre-food, post-toilet).',
-        time: weighInTime,
-      );
-    } else {
-      await NotificationService.cancel(1001);
-    }
-    if (workoutEnabled) {
-      await NotificationService.scheduleDaily(
-        id: 1002,
-        title: 'Workout reminder',
-        body: 'Time to train. Check your next target.',
-        time: workoutTime,
-      );
-    } else {
-      await NotificationService.cancel(1002);
-    }
 
     if (mounted) {
       ScaffoldMessenger.of(
@@ -458,35 +395,11 @@ class _TargetsPageState extends State<TargetsPage> {
 
           const SizedBox(height: 24),
 
-          // ===== Reminders =====
+          // ===== Progression defaults =====
           const Text(
-            'Reminders',
+            'Progression Logic',
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
-          SwitchListTile(
-            title: const Text('Morning weigh-in'),
-            value: weighInEnabled,
-            onChanged: (v) => setState(() => weighInEnabled = v),
-            subtitle: Text('Time: ${weighInTime.format(context)}'),
-            secondary: IconButton(
-              icon: const Icon(Icons.access_time),
-              onPressed: () => _pickTime(true),
-            ),
-          ),
-          SwitchListTile(
-            title: const Text('Workout reminder'),
-            value: workoutEnabled,
-            onChanged: (v) => setState(() => workoutEnabled = v),
-            subtitle: Text('Time: ${workoutTime.format(context)}'),
-            secondary: IconButton(
-              icon: const Icon(Icons.access_time),
-              onPressed: () => _pickTime(false),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // ===== Defaults =====
-          const Text('Defaults', style: TextStyle(fontWeight: FontWeight.bold)),
           Row(
             children: [
               Expanded(
