@@ -330,7 +330,7 @@ class _HealthConnectDiagnosticsPageState
                     const SizedBox(height: 12),
                     Text(
                       'Error: $error',
-                      style: const TextStyle(color: Colors.red),
+                      style: TextStyle(color: Theme.of(context).colorScheme.error),
                     ),
                   ],
                 ],
