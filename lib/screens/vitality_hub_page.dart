@@ -36,7 +36,7 @@ class _VitalityHubPageState extends State<VitalityHubPage> {
 
     final hasPerms = await HealthService.hasAllPrioritizedPermissions();
     final plans = _workouts.getPlans();
-    final logs = await _repository.getRecentWorkoutLogs(limit: 5);
+    final logs = await _repository.getWorkoutHistory(limit: 5);
     Map<String, int> steps = const {};
     Map<String, Duration> sleep = const {};
     if (hasPerms) {
@@ -57,7 +57,6 @@ class _VitalityHubPageState extends State<VitalityHubPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Vitality Hub'),
