@@ -33,6 +33,10 @@ Progressive overload training companion that blends workout planning, nutrition 
 - [ ] Apple Health parity and publishing checklist
 - [ ] Cross-platform UI polish before expanding beyond Android
 - [x] Containerize the project for consistent local tooling
+- [ ] Macro tracking (protein, carbs, fat) alongside calories in logging and targets
+- [ ] AI food log with photo capture and automatic food/calorie estimation
+- [ ] User profile screen for preferences, units, and health data status
+- [ ] GitHub Actions CI to build a debug APK artifact on every push, with signed release builds later
 
 ## Tech Stack
 - Flutter (Material 3, Dart 3.8)
