@@ -158,6 +158,7 @@ class _CalorieSummaryPageState extends State<CalorieSummaryPage>
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final netLoss = _burned - _intake; // 🔁 burned − intake
     final target = double.tryParse(_targetCtrl.text.trim()) ?? 0;
     final remaining = (target - netLoss).clamp(0, double.infinity);
@@ -198,8 +199,8 @@ class _CalorieSummaryPageState extends State<CalorieSummaryPage>
                     scale: goalMet ? _scale : const AlwaysStoppedAnimation(1.0),
                     child: Card(
                       color: goalMet
-                          ? Colors.green.shade100
-                          : Colors.red.shade100,
+                          ? scheme.primaryContainer
+                          : scheme.errorContainer,
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
@@ -238,7 +239,9 @@ class _CalorieSummaryPageState extends State<CalorieSummaryPage>
                               child: LinearProgressIndicator(
                                 value: progress,
                                 minHeight: 10,
-                                backgroundColor: Colors.black12,
+                                backgroundColor: scheme.onSurface.withValues(
+                                  alpha: 0.1,
+                                ),
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -246,7 +249,7 @@ class _CalorieSummaryPageState extends State<CalorieSummaryPage>
                               Text(
                                 '🎉 Congratulations! You met today\'s goal.',
                                 style: TextStyle(
-                                  color: Colors.green.shade900,
+                                  color: scheme.onPrimaryContainer,
                                   fontWeight: FontWeight.w600,
                                 ),
                               )
@@ -254,7 +257,7 @@ class _CalorieSummaryPageState extends State<CalorieSummaryPage>
                               Text(
                                 'You need ${remaining.toStringAsFixed(0)} more kcal to reach today\'s goal.',
                                 style: TextStyle(
-                                  color: Colors.red.shade900,
+                                  color: scheme.onErrorContainer,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
