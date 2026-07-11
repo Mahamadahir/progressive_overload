@@ -642,6 +642,8 @@ class _LogCaloriesPageState extends State<LogCaloriesPage> {
   Widget build(BuildContext context) {
     final totalKcal = _totalKcal();
     final totalMass = _totalMass();
+    final todayTotal = _todayLogs.fold<double>(0, (s, l) => s + l.kcal);
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Log Calories')),
@@ -651,6 +653,51 @@ class _LogCaloriesPageState extends State<LogCaloriesPage> {
               padding: const EdgeInsets.all(16),
               child: ListView(
                 children: [
+                  Card(
+                    color: scheme.primaryContainer,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.local_fire_department,
+                            color: scheme.onPrimaryContainer,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Logged today',
+                                  style: TextStyle(
+                                    color: scheme.onPrimaryContainer,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  '${todayTotal.toStringAsFixed(0)} kcal',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineSmall
+                                      ?.copyWith(
+                                        color: scheme.onPrimaryContainer,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            '${_todayLogs.length} meal'
+                            '${_todayLogs.length == 1 ? '' : 's'}',
+                            style: TextStyle(color: scheme.onPrimaryContainer),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   SegmentedButton<LogMode>(
                     segments: const [
                       ButtonSegment(

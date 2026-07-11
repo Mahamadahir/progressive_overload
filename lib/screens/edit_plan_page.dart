@@ -160,7 +160,7 @@ class _EditPlanPageState extends State<EditPlanPage> {
                                       TextButton(
                                         onPressed: () => Navigator.pushNamed(
                                           context,
-                                          '/settings',
+                                          '/targets',
                                         ),
                                         child: const Text(
                                           'Manage muscle groups',

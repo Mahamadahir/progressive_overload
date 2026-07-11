@@ -144,6 +144,11 @@ class _SessionPageState extends State<SessionPage> {
             padding: const EdgeInsets.all(16),
             child: ListView(
               children: [
+                _buildProgressHeader(
+                  done: _completedThisSession.length,
+                  total: plan.exercises.length,
+                ),
+                const SizedBox(height: 16),
                 if (_completedThisSession.isNotEmpty)
                   _buildCompletedSummaryCard(),
                 StreamBuilder<List<MuscleGroupNode>>(
@@ -181,6 +186,53 @@ class _SessionPageState extends State<SessionPage> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildProgressHeader({required int done, required int total}) {
+    final scheme = Theme.of(context).colorScheme;
+    final fraction = total <= 0 ? 0.0 : (done / total).clamp(0.0, 1.0);
+    return Card(
+      color: scheme.primaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Session progress',
+                  style: TextStyle(
+                    color: scheme.onPrimaryContainer,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  '$done / $total',
+                  style: TextStyle(
+                    color: scheme.onPrimaryContainer,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: fraction,
+                minHeight: 8,
+                backgroundColor: scheme.onPrimaryContainer.withValues(
+                  alpha: 0.15,
+                ),
+                color: scheme.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -234,9 +286,19 @@ class _SessionPageState extends State<SessionPage> {
         '${state.currentWeightKg.toStringAsFixed(1)} kg x ${state.expectedReps} reps - '
         '${state.mets.toStringAsFixed(1)} METs';
     final groupNames = detail?.groups.map((g) => g.name).join(', ');
+    final scheme = Theme.of(context).colorScheme;
 
     return ListTile(
-      title: Text(exerciseName),
+      contentPadding: EdgeInsets.zero,
+      leading: CircleAvatar(
+        backgroundColor: scheme.primaryContainer,
+        foregroundColor: scheme.onPrimaryContainer,
+        child: const Icon(Icons.fitness_center, size: 20),
+      ),
+      title: Text(
+        exerciseName,
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -245,7 +307,7 @@ class _SessionPageState extends State<SessionPage> {
             Text(groupNames, style: Theme.of(context).textTheme.bodySmall),
         ],
       ),
-      trailing: const Icon(Icons.chevron_right),
+      trailing: Icon(Icons.chevron_right, color: scheme.primary),
       onTap: () => _openExerciseLog(state, detail),
     );
   }
@@ -293,7 +355,7 @@ class _SessionPageState extends State<SessionPage> {
       children: [
         Row(
           children: [
-            const Icon(Icons.check_circle, color: Colors.green),
+            Icon(Icons.check_circle, color: theme.colorScheme.primary),
             const SizedBox(width: 8),
             Expanded(
               child: Text(

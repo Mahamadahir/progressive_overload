@@ -245,9 +245,51 @@ class _ExerciseLogPageState extends State<ExerciseLogPage> {
                             .toList(),
                       ),
                     ),
-                  Text(
-                    'Target: ${state.currentWeightKg.toStringAsFixed(1)} kg × ${state.expectedReps} reps - ${state.mets.toStringAsFixed(1)} METs',
-                    style: theme.textTheme.bodyMedium,
+                  Card(
+                    color: theme.colorScheme.primaryContainer,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.flag,
+                            color: theme.colorScheme.onPrimaryContainer,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Today\'s target',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onPrimaryContainer,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${state.currentWeightKg.toStringAsFixed(1)} kg × '
+                                  '${state.expectedReps} reps',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    color:
+                                        theme.colorScheme.onPrimaryContainer,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                Text(
+                                  '${state.mets.toStringAsFixed(1)} METs',
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onPrimaryContainer,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Row(
@@ -421,7 +463,7 @@ class _RestTimerScreenState extends State<RestTimerScreen> {
                 _format(_remaining),
                 textAlign: TextAlign.center,
                 style: theme.textTheme.displayLarge?.copyWith(
-                  color: Colors.white,
+                  color: theme.colorScheme.primary,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 2,
                 ),

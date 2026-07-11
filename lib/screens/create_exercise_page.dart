@@ -400,7 +400,7 @@ class _CreateExercisePageState extends State<CreateExercisePage> {
                                       TextButton(
                                         onPressed: () => Navigator.pushNamed(
                                           context,
-                                          '/settings',
+                                          '/targets',
                                         ),
                                         child: const Text(
                                           'Manage muscle groups',

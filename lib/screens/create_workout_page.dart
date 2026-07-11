@@ -254,7 +254,7 @@ class _CreateWorkoutPageState extends State<CreateWorkoutPage> {
                                       TextButton(
                                         onPressed: () => Navigator.pushNamed(
                                           context,
-                                          '/settings',
+                                          '/targets',
                                         ),
                                         child: const Text(
                                           'Manage muscle groups',
@@ -277,8 +277,8 @@ class _CreateWorkoutPageState extends State<CreateWorkoutPage> {
                               alignment: Alignment.centerLeft,
                               child: TextButton.icon(
                                 onPressed: () =>
-                                    Navigator.pushNamed(context, '/settings'),
-                                icon: const Icon(Icons.settings),
+                                    Navigator.pushNamed(context, '/targets'),
+                                icon: const Icon(Icons.flag_outlined),
                                 label: const Text('Manage muscle groups'),
                               ),
                             ),
@@ -385,12 +385,12 @@ class _CreateWorkoutPageState extends State<CreateWorkoutPage> {
                                   );
                                   final groupNames = detail.groups
                                       .map((g) => g.name)
-                                      .join(' � ');
+                                      .join(' • ');
                                   final secondary = [
                                     'Start ${exercise.startWeightKg.toStringAsFixed(1)} kg',
                                     '${exercise.minReps}-${exercise.maxReps} reps',
                                     '${exercise.incrementKg.toStringAsFixed(1)} kg inc',
-                                  ].join(' � ');
+                                  ].join(' • ');
                                   return CheckboxListTile(
                                     value: checked,
                                     controlAffinity:
