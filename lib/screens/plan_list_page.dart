@@ -38,21 +38,16 @@ class _PlanListPageState extends State<PlanListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Workouts'),
+        title: const Text('Your Plans'),
         actions: [
           IconButton(
             tooltip: 'Exercises',
             icon: const Icon(Icons.fitness_center),
             onPressed: () => Navigator.pushNamed(context, '/exercises'),
           ),
-          IconButton(
-            tooltip: 'Targets',
-            icon: const Icon(Icons.settings),
-            onPressed: () => Navigator.pushNamed(context, '/settings'),
-          ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           await Navigator.push(
             context,
@@ -60,7 +55,8 @@ class _PlanListPageState extends State<PlanListPage> {
           );
           setState(() {});
         },
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: const Text('New Plan'),
       ),
       body: StreamBuilder<List<MuscleGroupNode>>(
         stream: driftRepository.watchMuscleGroupsTree(),
@@ -77,12 +73,12 @@ class _PlanListPageState extends State<PlanListPage> {
               };
 
               if (plans.isEmpty) {
-                return const Center(
-                  child: Text('No workouts yet. Tap + to create one.'),
-                );
+                return _EmptyPlans();
               }
 
+              final scheme = Theme.of(context).colorScheme;
               return ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
                 itemCount: plans.length,
                 itemBuilder: (context, index) {
                   final plan = plans[index];
@@ -91,9 +87,6 @@ class _PlanListPageState extends State<PlanListPage> {
                           .map((id) => groupMap[id]?.name ?? 'Unknown')
                           .toList()
                         ..sort();
-                  final targetLabel = targets.isEmpty
-                      ? 'No muscle groups selected'
-                      : targets.join(', ');
 
                   final exerciseCount = plan.exercises.length;
                   final defaultId =
@@ -104,73 +97,12 @@ class _PlanListPageState extends State<PlanListPage> {
                   final defaultName = defaultId == null
                       ? null
                       : exerciseNames[defaultId] ?? 'Exercise';
+                  final defaultState = plan.defaultExerciseState;
 
                   return Card(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    child: ListTile(
-                      title: Text(plan.name),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Targets: $targetLabel'),
-                          Text(
-                            'Exercises: $exerciseCount${defaultName == null ? '' : '  Default: $defaultName'}',
-                          ),
-                          Text(() {
-                            final defaultState = plan.defaultExerciseState;
-                            if (defaultState == null) {
-                              return 'Next: No exercises configured yet';
-                            }
-                            return 'Next: ${defaultState.currentWeightKg.toStringAsFixed(1)} kg x ${defaultState.expectedReps} reps - ${defaultState.mets.toStringAsFixed(1)} METs';
-                          }()),
-                        ],
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          PopupMenuButton<String>(
-                            onSelected: (value) async {
-                              if (value == 'edit') {
-                                await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        EditPlanPage(planId: plan.id),
-                                  ),
-                                );
-                                setState(() {});
-                              } else if (value == 'delete') {
-                                await _service.deletePlan(plan.id);
-                                setState(() {});
-                              }
-                            },
-                            itemBuilder: (_) => const [
-                              PopupMenuItem(value: 'edit', child: Text('Edit')),
-                              PopupMenuItem(
-                                value: 'delete',
-                                child: Text('Delete'),
-                              ),
-                            ],
-                            icon: const Icon(Icons.more_vert),
-                          ),
-                          IconButton(
-                            tooltip: 'Start workout',
-                            icon: const Icon(Icons.play_arrow),
-                            onPressed: () async {
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => SessionPage(planId: plan.id),
-                                ),
-                              );
-                              setState(() {});
-                            },
-                          ),
-                        ],
-                      ),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(24),
                       onTap: () async {
                         await Navigator.push(
                           context,
@@ -180,6 +112,107 @@ class _PlanListPageState extends State<PlanListPage> {
                         );
                         setState(() {});
                       },
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    plan.name,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: 'Start workout',
+                                  icon: Icon(
+                                    Icons.play_circle_fill,
+                                    color: scheme.primary,
+                                  ),
+                                  onPressed: () async {
+                                    await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            SessionPage(planId: plan.id),
+                                      ),
+                                    );
+                                    setState(() {});
+                                  },
+                                ),
+                                PopupMenuButton<String>(
+                                  onSelected: (value) async {
+                                    if (value == 'edit') {
+                                      await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              EditPlanPage(planId: plan.id),
+                                        ),
+                                      );
+                                      setState(() {});
+                                    } else if (value == 'delete') {
+                                      await _service.deletePlan(plan.id);
+                                      setState(() {});
+                                    }
+                                  },
+                                  itemBuilder: (_) => const [
+                                    PopupMenuItem(
+                                      value: 'edit',
+                                      child: Text('Edit'),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'delete',
+                                      child: Text('Delete'),
+                                    ),
+                                  ],
+                                  icon: const Icon(Icons.more_vert),
+                                ),
+                              ],
+                            ),
+                            if (targets.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4, right: 8),
+                                child: Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: targets
+                                      .map(
+                                        (t) => Chip(
+                                          label: Text(t),
+                                          visualDensity: VisualDensity.compact,
+                                          materialTapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                        ),
+                                      )
+                                      .toList(),
+                                ),
+                              ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '$exerciseCount exercise${exerciseCount == 1 ? '' : 's'}'
+                              '${defaultName == null ? '' : '  •  Default: $defaultName'}',
+                              style: TextStyle(color: scheme.onSurfaceVariant),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              defaultState == null
+                                  ? 'Next: no exercises configured yet'
+                                  : 'Next: ${defaultState.currentWeightKg.toStringAsFixed(1)} kg '
+                                        'x ${defaultState.expectedReps} reps',
+                              style: TextStyle(
+                                color: scheme.primary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   );
                 },
@@ -187,6 +220,28 @@ class _PlanListPageState extends State<PlanListPage> {
             },
           );
         },
+      ),
+    );
+  }
+}
+
+class _EmptyPlans extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.event_note_outlined, size: 56, color: scheme.primary),
+          const SizedBox(height: 12),
+          const Text('No plans yet'),
+          const SizedBox(height: 4),
+          Text(
+            'Tap New Plan to build your first workout.',
+            style: TextStyle(color: scheme.onSurfaceVariant),
+          ),
+        ],
       ),
     );
   }
