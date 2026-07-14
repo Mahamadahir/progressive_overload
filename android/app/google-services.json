@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "548101662038",
+    "project_id": "progressive-overload-58294",
+    "storage_bucket": "progressive-overload-58294.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:548101662038:android:a608e0cfd371599454e2f7",
+        "android_client_info": {
+          "package_name": "com.mahamad.fitness.progressive_overload"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAokCVg1Hw0oRK7x3M0m6UUUTvk5fhbkx4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

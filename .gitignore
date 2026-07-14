@@ -39,3 +39,6 @@ app.*.map.json
 
 # Local debug dumps
 deps-debug.txt
+
+# Firebase Functions
+functions/node_modules/

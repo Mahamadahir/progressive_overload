@@ -20,6 +20,7 @@ import 'models/workout_log.dart' show WorkoutLog, WorkoutLogAdapter; // scoped
 import 'services/notification_service.dart';
 import 'services/meal_service.dart';
 import 'services/health_service.dart';
+import 'services/firebase_bootstrap.dart';
 
 // App + Health
 import 'app.dart';
@@ -89,6 +90,8 @@ Future<void> bootstrap() async {
     Hive.openBox('health_cache'),
     NotificationService.init(),
   ]);
+
+  await FirebaseBootstrap.initialise();
 
   // ---------- Seed defaults ----------
   await MealService().seedDefaultsIfEmpty();

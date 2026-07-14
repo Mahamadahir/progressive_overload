@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../services/meal_service.dart';
+import '../services/ai_food_log_service.dart';
 import '../models/meal_template.dart';
 import '../models/food_component.dart';
 import '../models/meal_component_line.dart';
@@ -16,11 +20,14 @@ enum LogMode { newMeal, savedMeal }
 
 class _LogCaloriesPageState extends State<LogCaloriesPage> {
   final _svc = MealService();
+  final _aiSvc = AiFoodLogService();
+  final _imagePicker = ImagePicker();
 
   LogMode _mode = LogMode.newMeal;
 
   // Build-by-components state
   final _mealNameCtrl = TextEditingController();
+  final _aiMealTextCtrl = TextEditingController();
   final List<_LineEditor> _lines = [];
 
   // Saved meal state
@@ -38,6 +45,9 @@ class _LogCaloriesPageState extends State<LogCaloriesPage> {
 
   String? _msg;
   bool _saving = false;
+  bool _aiParsingMeal = false;
+  bool _aiParsingLabel = false;
+  List<String> _aiWarnings = const [];
 
   @override
   void initState() {
@@ -88,6 +98,24 @@ class _LogCaloriesPageState extends State<LogCaloriesPage> {
       sum += g;
     }
     return sum;
+  }
+
+  bool _isPendingAiComponent(FoodComponent component) =>
+      component.id.startsWith(aiDraftComponentIdPrefix);
+
+  Future<void> _savePendingAiComponents() async {
+    for (final editor in _lines) {
+      final component = editor.component;
+      if (component == null || !_isPendingAiComponent(component)) {
+        continue;
+      }
+      final saved = await _svc.createOrUpdateComponent(
+        name: component.name,
+        kcalPer100g: component.kcalPer100g,
+      );
+      editor.component = saved;
+    }
+    _updateComponentList(_svc.getAllComponents());
   }
 
   List<MealComponentLine> _collectLines() {
@@ -251,6 +279,7 @@ class _LogCaloriesPageState extends State<LogCaloriesPage> {
     String? templateId,
     required String name,
   }) async {
+    await _savePendingAiComponents();
     final lines = _collectLines();
     if (name.trim().isEmpty) throw 'Enter a meal name';
     if (lines.isEmpty) throw 'Add at least one component with grams > 0';
@@ -627,9 +656,205 @@ class _LogCaloriesPageState extends State<LogCaloriesPage> {
     }
   }
 
+  Future<void> _parseAiMealText() async {
+    if (_aiMealTextCtrl.text.trim().isEmpty) {
+      setState(() => _msg = 'Error: Enter a meal description first.');
+      return;
+    }
+
+    setState(() {
+      _aiParsingMeal = true;
+      _msg = null;
+      _aiWarnings = const [];
+    });
+
+    try {
+      final parsed = await _aiSvc.parseMealText(_aiMealTextCtrl.text);
+      final mapped = _aiSvc.mapMealDraft(
+        draft: parsed,
+        existingComponents: _svc.getAllComponents(),
+      );
+      _mealNameCtrl.text = mapped.mealName;
+      for (final line in _lines) {
+        line.dispose();
+      }
+      _lines
+        ..clear()
+        ..addAll(
+          mapped.lines.map(
+            (line) => _LineEditor(
+              component: line.component,
+              grams: line.grams,
+              isPendingAiComponent: line.isPendingComponent,
+              confidence: line.confidence,
+            ),
+          ),
+        );
+      _updateComponentList(_svc.getAllComponents());
+      setState(() {
+        _mode = LogMode.newMeal;
+        _aiWarnings = mapped.warnings;
+        _msg = mapped.lines.any((line) => line.isPendingComponent)
+            ? 'Review AI draft. New components will be saved when you log the meal.'
+            : 'Review AI draft before logging.';
+      });
+    } catch (error) {
+      setState(() => _msg = 'Error: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _aiParsingMeal = false);
+      }
+    }
+  }
+
+  Future<void> _parseAiLabelPhoto() async {
+    setState(() {
+      _aiParsingLabel = true;
+      _msg = null;
+      _aiWarnings = const [];
+    });
+
+    try {
+      final photo = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 85,
+      );
+      if (photo == null) return;
+
+      final mimeType = photo.mimeType ?? _mimeTypeForPath(photo.path);
+      if (mimeType != 'image/jpeg' && mimeType != 'image/png') {
+        throw const AiFoodLogException('Choose a JPEG or PNG label photo.');
+      }
+
+      final bytes = await photo.readAsBytes();
+      if (bytes.length > 4 * 1024 * 1024) {
+        throw const AiFoodLogException('Choose a label photo under 4 MB.');
+      }
+
+      final draft = await _aiSvc.parseLabelPhoto(
+        base64: base64Encode(bytes),
+        mimeType: mimeType,
+      );
+      await _reviewAiLabelDraft(draft);
+    } catch (error) {
+      setState(() => _msg = 'Error: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _aiParsingLabel = false);
+      }
+    }
+  }
+
+  String _mimeTypeForPath(String path) {
+    final lower = path.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+    return 'application/octet-stream';
+  }
+
+  Future<void> _reviewAiLabelDraft(AiComponentDraft draft) async {
+    final nameCtrl = TextEditingController(text: draft.name);
+    final kcalCtrl = TextEditingController(
+      text: draft.kcalPer100g.toStringAsFixed(0),
+    );
+    final servingCtrl = TextEditingController(
+      text: draft.servingSizeGrams.toStringAsFixed(0),
+    );
+    final kcalServingCtrl = TextEditingController(
+      text: draft.kcalPerServing.toStringAsFixed(0),
+    );
+
+    try {
+      final shouldSave = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Review label component'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: 'Name'),
+                ),
+                TextField(
+                  controller: kcalCtrl,
+                  decoration: const InputDecoration(labelText: 'kcal per 100g'),
+                  keyboardType: TextInputType.number,
+                ),
+                TextField(
+                  controller: servingCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Serving size g',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                TextField(
+                  controller: kcalServingCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'kcal per serving',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                if (draft.warnings.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  ...draft.warnings.map(
+                    (warning) => Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('Warning: $warning'),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Confidence: ${(draft.confidence * 100).toStringAsFixed(0)}%',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Save component'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldSave != true) return;
+      final name = nameCtrl.text.trim();
+      final kcal = double.tryParse(kcalCtrl.text) ?? 0;
+      if (name.isEmpty || kcal <= 0) {
+        setState(() => _msg = 'Error: Enter valid component details.');
+        return;
+      }
+      await _svc.createOrUpdateComponent(name: name, kcalPer100g: kcal);
+      await _refreshAll();
+      setState(() {
+        _aiWarnings = draft.warnings;
+        _msg = 'Saved component "$name"';
+      });
+    } finally {
+      nameCtrl.dispose();
+      kcalCtrl.dispose();
+      servingCtrl.dispose();
+      kcalServingCtrl.dispose();
+    }
+  }
+
   @override
   void dispose() {
     _mealNameCtrl.dispose();
+    _aiMealTextCtrl.dispose();
     _searchTemplateCtrl.dispose();
     _searchComponentCtrl.dispose();
     for (final l in _lines) {
@@ -718,6 +943,15 @@ class _LogCaloriesPageState extends State<LogCaloriesPage> {
                   const SizedBox(height: 16),
 
                   if (_mode == LogMode.newMeal) ...[
+                    _AiFoodLogPanel(
+                      mealTextController: _aiMealTextCtrl,
+                      isParsingMeal: _aiParsingMeal,
+                      isParsingLabel: _aiParsingLabel,
+                      warnings: _aiWarnings,
+                      onParseMealText: _parseAiMealText,
+                      onParseLabelPhoto: _parseAiLabelPhoto,
+                    ),
+                    const SizedBox(height: 16),
                     TextField(
                       controller: _mealNameCtrl,
                       decoration: const InputDecoration(labelText: 'Meal name'),
@@ -772,45 +1006,71 @@ class _LogCaloriesPageState extends State<LogCaloriesPage> {
                       return Card(
                         child: Padding(
                           padding: const EdgeInsets.all(8.0),
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                child: DropdownButtonFormField<FoodComponent>(
-                                  initialValue: le.component,
-                                  items: _components
-                                      .map(
-                                        (c) => DropdownMenuItem(
-                                          value: c,
-                                          child: Text(c.name),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child:
+                                        DropdownButtonFormField<FoodComponent>(
+                                          initialValue: le.component,
+                                          items: _components
+                                              .map(
+                                                (c) => DropdownMenuItem(
+                                                  value: c,
+                                                  child: Text(c.name),
+                                                ),
+                                              )
+                                              .toList(),
+                                          onChanged: (c) => setState(() {
+                                            le.component = c;
+                                            le.isPendingAiComponent =
+                                                c != null &&
+                                                _isPendingAiComponent(c);
+                                            le.confidence = null;
+                                            _updateComponentList(_components);
+                                          }),
+                                          decoration: const InputDecoration(
+                                            labelText: 'Component',
+                                          ),
                                         ),
-                                      )
-                                      .toList(),
-                                  onChanged: (c) => setState(() {
-                                    le.component = c;
-                                    _updateComponentList(_components);
-                                  }),
-                                  decoration: const InputDecoration(
-                                    labelText: 'Component',
+                                  ),
+                                  const SizedBox(width: 8),
+                                  SizedBox(
+                                    width: 100,
+                                    child: TextField(
+                                      controller: le.gramsCtrl,
+                                      decoration: const InputDecoration(
+                                        labelText: 'g',
+                                      ),
+                                      keyboardType: TextInputType.number,
+                                      onChanged: (_) => setState(() {}),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.close),
+                                    onPressed: () =>
+                                        setState(() => _lines.removeAt(idx)),
+                                  ),
+                                ],
+                              ),
+                              if (le.isPendingAiComponent ||
+                                  le.confidence != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    [
+                                      if (le.isPendingAiComponent)
+                                        'New component will be saved on log',
+                                      if (le.confidence != null)
+                                        'AI confidence ${(le.confidence! * 100).toStringAsFixed(0)}%',
+                                    ].join(' • '),
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              SizedBox(
-                                width: 100,
-                                child: TextField(
-                                  controller: le.gramsCtrl,
-                                  decoration: const InputDecoration(
-                                    labelText: 'g',
-                                  ),
-                                  keyboardType: TextInputType.number,
-                                  onChanged: (_) => setState(() {}),
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.close),
-                                onPressed: () =>
-                                    setState(() => _lines.removeAt(idx)),
-                              ),
                             ],
                           ),
                         ),
@@ -1071,12 +1331,107 @@ class _LogCaloriesPageState extends State<LogCaloriesPage> {
   }
 }
 
+class _AiFoodLogPanel extends StatelessWidget {
+  final TextEditingController mealTextController;
+  final bool isParsingMeal;
+  final bool isParsingLabel;
+  final List<String> warnings;
+  final VoidCallback onParseMealText;
+  final VoidCallback onParseLabelPhoto;
+
+  const _AiFoodLogPanel({
+    required this.mealTextController,
+    required this.isParsingMeal,
+    required this.isParsingLabel,
+    required this.warnings,
+    required this.onParseMealText,
+    required this.onParseLabelPhoto,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.auto_awesome),
+                const SizedBox(width: 8),
+                Text('AI food logging', style: theme.textTheme.titleMedium),
+              ],
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: mealTextController,
+              minLines: 2,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                labelText: 'Describe a meal',
+                hintText: 'Chicken, rice and broccoli',
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ElevatedButton.icon(
+                  icon: isParsingMeal
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.text_fields),
+                  label: const Text('Parse meal'),
+                  onPressed: isParsingMeal ? null : onParseMealText,
+                ),
+                OutlinedButton.icon(
+                  icon: isParsingLabel
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.photo_camera),
+                  label: const Text('Scan label'),
+                  onPressed: isParsingLabel ? null : onParseLabelPhoto,
+                ),
+              ],
+            ),
+            if (warnings.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              ...warnings.map(
+                (warning) => Text(
+                  'Warning: $warning',
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _LineEditor {
   FoodComponent? component;
   final TextEditingController gramsCtrl;
 
-  _LineEditor({this.component, double? grams})
-    : gramsCtrl = TextEditingController(text: (grams ?? 0).toStringAsFixed(0));
+  bool isPendingAiComponent;
+  double? confidence;
+
+  _LineEditor({
+    this.component,
+    double? grams,
+    this.isPendingAiComponent = false,
+    this.confidence,
+  }) : gramsCtrl = TextEditingController(text: (grams ?? 0).toStringAsFixed(0));
 
   void dispose() => gramsCtrl.dispose();
 }
