@@ -59,9 +59,7 @@ class App extends StatelessWidget {
         color: scheme.surface,
         surfaceTintColor: Colors.transparent,
         margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
@@ -92,27 +90,40 @@ class App extends StatelessWidget {
 
   @visibleForTesting
   Route<dynamic>? handleGeneratedRoute(RouteSettings settings) {
+    final arguments = settings.arguments;
+    final planId = arguments is String && arguments.trim().isNotEmpty
+        ? arguments
+        : null;
+
     switch (settings.name) {
       case '/session':
-        final planId = settings.arguments as String;
+        if (planId == null) return _invalidRoute(settings);
         return MaterialPageRoute(
           builder: (_) => SessionPage(planId: planId),
           settings: settings,
         );
       case '/plan_detail':
-        final planId = settings.arguments as String;
+        if (planId == null) return _invalidRoute(settings);
         return MaterialPageRoute(
           builder: (_) => PlanDetailPage(planId: planId),
           settings: settings,
         );
       case '/plan_charts':
-        final planId = settings.arguments as String;
+        if (planId == null) return _invalidRoute(settings);
         return MaterialPageRoute(
           builder: (_) => PlanChartsPage(planId: planId),
           settings: settings,
         );
     }
     return null;
+  }
+
+  Route<dynamic> _invalidRoute(RouteSettings settings) {
+    return MaterialPageRoute(
+      builder: (_) =>
+          const Scaffold(body: Center(child: Text('Missing workout plan.'))),
+      settings: settings,
+    );
   }
 
   @override

@@ -1,9 +1,0 @@
-import 'package:flutter_test/flutter_test.dart';
-
-void main() {
-  group('health_singleton.dart', () {
-    test('TODO: implement tests', () async {
-      // TODO(Mrmah): Add unit tests covering health_singleton.dart.
-    }, skip: true);
-  });
-}

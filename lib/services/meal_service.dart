@@ -187,7 +187,7 @@ class MealService {
     final start = DateTime(t.year, t.month, t.day).toUtc();
     final end = start.add(const Duration(days: 1));
     return _logs.values
-        .where((e) => e.loggedAt.isAfter(start) && e.loggedAt.isBefore(end))
+        .where((e) => !e.loggedAt.isBefore(start) && e.loggedAt.isBefore(end))
         .fold(0.0, (sum, e) => sum + e.kcal);
   }
 
@@ -196,7 +196,7 @@ class MealService {
     final start = DateTime(t.year, t.month, t.day).toUtc();
     final end = start.add(const Duration(days: 1));
     final list = _logs.values
-        .where((e) => e.loggedAt.isAfter(start) && e.loggedAt.isBefore(end))
+        .where((e) => !e.loggedAt.isBefore(start) && e.loggedAt.isBefore(end))
         .toList();
     list.sort((a, b) => b.loggedAt.compareTo(a.loggedAt));
     return list;

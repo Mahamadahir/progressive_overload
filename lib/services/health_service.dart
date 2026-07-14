@@ -244,7 +244,7 @@ class HealthService {
         }
       } catch (e) {
         debugPrint('[Calories/day] ${_yyyyMmDd(dayStart)} error: $e');
-        result[_yyyyMmDd(dayStart)] = 0.0;
+        rethrow;
       }
     }
 

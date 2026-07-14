@@ -171,15 +171,15 @@ class DriftRepository {
       throw RepositoryException('Min reps cannot be greater than max reps.');
     }
 
-    if (startWeightKg < 0) {
+    if (!startWeightKg.isFinite || startWeightKg < 0) {
       throw RepositoryException('Starting weight cannot be negative.');
     }
 
-    if (incrementKg <= 0) {
+    if (!incrementKg.isFinite || incrementKg <= 0) {
       throw RepositoryException('Increment must be greater than zero.');
     }
 
-    if (defaultMets <= 0) {
+    if (!defaultMets.isFinite || defaultMets <= 0) {
       throw RepositoryException('Default METs must be greater than zero.');
     }
 
@@ -254,15 +254,15 @@ class DriftRepository {
       throw RepositoryException('Min reps cannot be greater than max reps.');
     }
 
-    if (startWeightKg < 0) {
+    if (!startWeightKg.isFinite || startWeightKg < 0) {
       throw RepositoryException('Starting weight cannot be negative.');
     }
 
-    if (incrementKg <= 0) {
+    if (!incrementKg.isFinite || incrementKg <= 0) {
       throw RepositoryException('Increment must be greater than zero.');
     }
 
-    if (defaultMets <= 0) {
+    if (!defaultMets.isFinite || defaultMets <= 0) {
       throw RepositoryException('Default METs must be greater than zero.');
     }
 

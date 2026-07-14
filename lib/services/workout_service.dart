@@ -17,7 +17,37 @@ class ExerciseSetEntry {
   const ExerciseSetEntry({required this.reps, required this.weightKg});
 }
 
+typedef LatestWeightReader = Future<double?> Function();
+typedef StrengthWorkoutWriter =
+    Future<bool> Function({
+      required DateTime start,
+      required DateTime end,
+      required double energyKcal,
+      required String title,
+    });
+typedef WorkoutNotification =
+    Future<void> Function({
+      required int id,
+      required String title,
+      required String body,
+    });
+
 class WorkoutService {
+  WorkoutService({
+    LatestWeightReader? latestWeightReader,
+    StrengthWorkoutWriter? strengthWorkoutWriter,
+    WorkoutNotification? workoutNotification,
+  }) : _latestWeightReader =
+           latestWeightReader ?? HealthService.getLatestWeight,
+       _strengthWorkoutWriter =
+           strengthWorkoutWriter ?? HealthService.writeStrengthWorkout,
+       _workoutNotification =
+           workoutNotification ?? NotificationService.showNow;
+
+  final LatestWeightReader _latestWeightReader;
+  final StrengthWorkoutWriter _strengthWorkoutWriter;
+  final WorkoutNotification _workoutNotification;
+
   // Explicit generic types + aliases
   final Box<wp.WorkoutPlan> _planBox = Hive.box<wp.WorkoutPlan>('plans');
   final Box<wl.WorkoutLog> _logBox = Hive.box<wl.WorkoutLog>('plan_logs');
@@ -205,8 +235,9 @@ class WorkoutService {
     try {
       await driftRepository.createWorkout(name: name, planId: plan.id);
     } catch (e, st) {
+      await _planBox.delete(plan.id);
       developer.log(
-        'Failed to create Drift workout for plan ${plan.id}: $e',
+        'Failed to create Drift workout for plan ${plan.id}; rolled back Hive plan: $e',
         name: 'WorkoutService',
         error: e,
         stackTrace: st,
@@ -327,7 +358,7 @@ class WorkoutService {
     required int totalReps,
     double mets = 3.0,
   }) async {
-    final bodyWeight = await HealthService.getLatestWeight();
+    final bodyWeight = await _latestWeightReader();
     if (bodyWeight == null) return 0;
     final minutesUnderTension = totalReps * 5 / 60.0;
     final kcal = mets * 3.5 * bodyWeight / 200.0 * minutesUnderTension;
@@ -347,6 +378,9 @@ class WorkoutService {
     }
 
     final totalSets = sets.length;
+    if (sets.any((entry) => entry.reps <= 0)) {
+      throw ArgumentError('Reps must be greater than zero for all sets.');
+    }
     final totalReps = sets.fold<int>(0, (sum, entry) => sum + entry.reps);
     if (totalSets <= 0 || totalReps <= 0) {
       throw ArgumentError('Sets and reps must be greater than zero.');
@@ -377,18 +411,25 @@ class WorkoutService {
     final durationSec = totalReps * 5;
     final start = now.subtract(Duration(seconds: durationSec));
 
-    await HealthService.writeStrengthWorkout(
+    final healthWriteSucceeded = await _strengthWorkoutWriter(
       start: start,
       end: now,
       energyKcal: energy.round().toDouble(),
       title: exerciseName,
     );
+    if (!healthWriteSucceeded) {
+      throw StateError('Health workout write failed.');
+    }
 
     // 3) Save local log
     final avgReps = totalReps / totalSets;
     final metTarget = avgReps >= state.expectedReps;
     final overPerf = avgReps >= state.maxReps;
     final lastWeight = sets.last.weightKg;
+
+    // Drift can still fail after the Hive log is written. Rolling back Hive,
+    // Drift and Health as one unit is not supported by these stores, so the
+    // failure is surfaced and logged instead of being silently accepted.
     final log = wl.WorkoutLog(
       planId: plan.id,
       date: now,
@@ -458,7 +499,7 @@ class WorkoutService {
         state.expectedReps = state.minReps;
 
         final notificationId = 6000 + (state.exerciseId.hashCode & 0x7fffffff);
-        await NotificationService.showNow(
+        await _workoutNotification(
           id: notificationId,
           title: 'Deload activated',
           body: 'Taking a deload week to recover.',
